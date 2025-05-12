@@ -108,14 +108,15 @@ class PostcodeService:
             if None in (start_lat, start_lon, end_lat, end_lon):
                 return None
             
-            # Convert to float to ensure type safety
+            # Convert to float - we've already checked for None values above
             try:
+                # Cast each value to float directly - we know they're not None at this point
                 start_lat_float = float(start_lat)
                 start_lon_float = float(start_lon)
-                end_lat_float = float(end_lat)
+                end_lat_float = float(end_lat)  
                 end_lon_float = float(end_lon)
             except (ValueError, TypeError):
-                logger.error("Could not convert coordinates to float")
+                logger.error(f"Could not convert coordinates to float: {start_lat}, {start_lon}, {end_lat}, {end_lon}")
                 return None
                 
             # Calculate distance using Haversine formula

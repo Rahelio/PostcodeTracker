@@ -1,5 +1,6 @@
 from datetime import datetime
 from app import db
+from typing import Dict, Any, Optional
 
 class Journey(db.Model):
     """Model for storing journey information between UK postcodes."""
@@ -10,10 +11,14 @@ class Journey(db.Model):
     end_time = db.Column(db.DateTime, nullable=True)
     distance_miles = db.Column(db.Float, nullable=True)
     
-    def __repr__(self):
+    def __init__(self, **kwargs):
+        """Initialize a Journey instance with keyword arguments."""
+        super(Journey, self).__init__(**kwargs)
+    
+    def __repr__(self) -> str:
         return f'<Journey {self.start_postcode} to {self.end_postcode}>'
     
-    def to_dict(self):
+    def to_dict(self) -> Dict[str, Any]:
         """Convert journey to a dictionary for JSON serialization."""
         return {
             'id': self.id,
