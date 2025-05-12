@@ -13,7 +13,7 @@
                     <button id="toggle-select-all" class="btn btn-sm btn-outline-light me-2">
                         <i class="fas fa-check-square me-1"></i>Select All
                     </button>
-                    <div class="dropdown d-inline-block">
+                    <div class="dropdown d-inline-block me-2">
                         <button class="btn btn-sm btn-primary dropdown-toggle" type="button" id="exportDropdown" data-bs-toggle="dropdown" aria-expanded="false">
                             <i class="fas fa-file-export me-1"></i>Export
                         </button>
@@ -22,6 +22,9 @@
                             <li><button class="dropdown-item" id="export-excel"><i class="fas fa-file-excel me-2"></i>Excel</button></li>
                         </ul>
                     </div>
+                    <button id="delete-selected" class="btn btn-sm btn-danger">
+                        <i class="fas fa-trash-alt me-1"></i>Delete
+                    </button>
                 </div>
                 {% endif %}
             </div>
@@ -68,7 +71,7 @@
                         </table>
                         <div class="mt-3 text-muted small">
                             <i class="fas fa-info-circle me-1"></i>
-                            Select journeys to export by clicking the checkboxes
+                            Select journeys using the checkboxes to export or delete them
                         </div>
                     </div>
                 {% else %}
@@ -171,6 +174,14 @@ document.addEventListener('DOMContentLoaded', function() {
         exportJourneys('excel');
     });
     
+    // Delete selected journeys
+    const deleteBtn = document.getElementById('delete-selected');
+    if (deleteBtn) {
+        deleteBtn.addEventListener('click', function() {
+            deleteSelectedJourneys();
+        });
+    }
+    
     // Export function
     function exportJourneys(format) {
         // Get selected journey IDs
@@ -237,6 +248,72 @@ document.addEventListener('DOMContentLoaded', function() {
         .catch(error => {
             console.error('Export error:', error);
             showAlert('Error exporting data: ' + error.message, 'danger');
+        });
+    }
+    
+    // Function to delete selected journeys
+    function deleteSelectedJourneys() {
+        // Get selected journey IDs
+        const selectedIds = Array.from(journeyCheckboxes)
+            .filter(checkbox => checkbox.checked)
+            .map(checkbox => checkbox.dataset.journeyId);
+        
+        // Check if any journeys are selected
+        if (selectedIds.length === 0) {
+            showAlert('Please select at least one journey to delete', 'warning');
+            return;
+        }
+        
+        // Ask for confirmation before deletion
+        if (!confirm(`Are you sure you want to delete ${selectedIds.length} selected journey(s)? This action cannot be undone.`)) {
+            return;
+        }
+        
+        // Show loading state
+        showAlert(`Deleting ${selectedIds.length} journey(s)...`, 'info');
+        
+        // Make API request to delete journeys
+        fetch('/api/journeys/delete', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                journey_ids: selectedIds
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Clear any alerts and show success message
+                if (alertContainer) {
+                    alertContainer.innerHTML = '';
+                }
+                showAlert(data.message, 'success');
+                
+                // Remove deleted journeys from the table
+                selectedIds.forEach(id => {
+                    const checkbox = document.querySelector(`.journey-checkbox[data-journey-id="${id}"]`);
+                    if (checkbox) {
+                        const row = checkbox.closest('tr');
+                        if (row) {
+                            row.remove();
+                        }
+                    }
+                });
+                
+                // If no journeys left, reload the page to show empty state
+                const remainingRows = document.querySelectorAll('#journey-table tbody tr');
+                if (remainingRows.length === 0) {
+                    window.location.reload();
+                }
+            } else {
+                showAlert(data.message || 'Error deleting journeys', 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Delete error:', error);
+            showAlert('Error deleting journeys: ' + error.message, 'danger');
         });
     }
     

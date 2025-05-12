@@ -174,6 +174,46 @@ def get_postcode_from_coordinates():
         logger.error(f"Error converting coordinates to postcode: {e}")
         return jsonify({'success': False, 'message': f'Server error: {str(e)}'}), 500
 
+@app.route('/api/journeys/delete', methods=['POST'])
+def delete_journeys():
+    """API endpoint to delete selected journeys."""
+    try:
+        data = request.get_json()
+        journey_ids = data.get('journey_ids', [])
+        
+        # Log delete request
+        logger.info(f"Delete request for journey_ids: {journey_ids}")
+        
+        # Convert journey_ids to integers if they are strings
+        if journey_ids:
+            try:
+                journey_ids = [int(id) for id in journey_ids]
+            except ValueError:
+                return jsonify({
+                    'success': False,
+                    'message': 'Invalid journey ID format'
+                }), 400
+                
+            # Delete the journeys
+            deleted_count = Journey.query.filter(Journey.id.in_(journey_ids)).delete(synchronize_session=False)
+            db.session.commit()
+            
+            return jsonify({
+                'success': True,
+                'message': f'Successfully deleted {deleted_count} journeys',
+                'deleted_count': deleted_count
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': 'No journey IDs provided'
+            }), 400
+            
+    except Exception as e:
+        logger.error(f"Error deleting journeys: {e}")
+        db.session.rollback()
+        return jsonify({'success': False, 'message': f'Server error: {str(e)}'}), 500
+
 @app.route('/api/journeys/export/<format_type>', methods=['POST'])
 def export_journeys(format_type):
     """API endpoint to export selected journeys in CSV or Excel format."""
