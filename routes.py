@@ -7,7 +7,7 @@ import pandas as pd
 import tempfile
 import csv
 from app import app, db
-from models import Journey
+from models import Journey, SavedLocation
 from postcode_service import PostcodeService
 from export_util import export_to_csv, export_to_excel, get_journey_data
 
@@ -306,4 +306,206 @@ def export_journeys(format_type):
             
     except Exception as e:
         logger.error(f"Error exporting journeys: {e}")
+        return jsonify({'success': False, 'message': f'Server error: {str(e)}'}), 500
+
+# Routes for saved locations
+@app.route('/locations')
+def locations():
+    """Render the saved locations page."""
+    locations = SavedLocation.query.order_by(SavedLocation.name).all()
+    return render_template('locations.html', locations=locations)
+
+@app.route('/api/locations', methods=['GET'])
+def get_locations():
+    """API endpoint to get all saved locations."""
+    try:
+        locations = SavedLocation.query.order_by(SavedLocation.name).all()
+        return jsonify({
+            'success': True,
+            'locations': [location.to_dict() for location in locations]
+        })
+    except Exception as e:
+        logger.error(f"Error fetching locations: {e}")
+        return jsonify({'success': False, 'message': f'Server error: {str(e)}'}), 500
+
+@app.route('/api/locations', methods=['POST'])
+def add_location():
+    """API endpoint to add a new saved location."""
+    try:
+        data = request.get_json()
+        name = data.get('name', '').strip()
+        postcode = data.get('postcode', '').strip().upper().replace(" ", "")
+        
+        # Validate data
+        if not name:
+            return jsonify({'success': False, 'message': 'Location name is required'}), 400
+            
+        if not postcode:
+            return jsonify({'success': False, 'message': 'Postcode is required'}), 400
+            
+        # Validate postcode
+        if not PostcodeService.validate_postcode(postcode):
+            return jsonify({'success': False, 'message': 'Invalid UK postcode format'}), 400
+            
+        # Check if location with same name already exists
+        existing = SavedLocation.query.filter_by(name=name).first()
+        if existing:
+            return jsonify({'success': False, 'message': f'A location named "{name}" already exists'}), 400
+            
+        # Create new location
+        location = SavedLocation(name=name, postcode=postcode)
+        db.session.add(location)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Location saved successfully',
+            'location': location.to_dict()
+        })
+        
+    except Exception as e:
+        logger.error(f"Error adding location: {e}")
+        db.session.rollback()
+        return jsonify({'success': False, 'message': f'Server error: {str(e)}'}), 500
+
+@app.route('/api/locations/<int:location_id>', methods=['PUT'])
+def update_location(location_id):
+    """API endpoint to update a saved location."""
+    try:
+        location = SavedLocation.query.get(location_id)
+        if not location:
+            return jsonify({'success': False, 'message': 'Location not found'}), 404
+            
+        data = request.get_json()
+        name = data.get('name', '').strip()
+        postcode = data.get('postcode', '').strip().upper().replace(" ", "")
+        
+        # Validate data
+        if not name:
+            return jsonify({'success': False, 'message': 'Location name is required'}), 400
+            
+        if not postcode:
+            return jsonify({'success': False, 'message': 'Postcode is required'}), 400
+            
+        # Validate postcode
+        if not PostcodeService.validate_postcode(postcode):
+            return jsonify({'success': False, 'message': 'Invalid UK postcode format'}), 400
+            
+        # Check if another location with the same name exists
+        existing = SavedLocation.query.filter(SavedLocation.name == name, SavedLocation.id != location_id).first()
+        if existing:
+            return jsonify({'success': False, 'message': f'A different location named "{name}" already exists'}), 400
+            
+        # Update location
+        location.name = name
+        location.postcode = postcode
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Location updated successfully',
+            'location': location.to_dict()
+        })
+        
+    except Exception as e:
+        logger.error(f"Error updating location: {e}")
+        db.session.rollback()
+        return jsonify({'success': False, 'message': f'Server error: {str(e)}'}), 500
+
+@app.route('/api/locations/<int:location_id>', methods=['DELETE'])
+def delete_location(location_id):
+    """API endpoint to delete a saved location."""
+    try:
+        location = SavedLocation.query.get(location_id)
+        if not location:
+            return jsonify({'success': False, 'message': 'Location not found'}), 404
+            
+        # Check if location is used in any journeys
+        journeys_start = Journey.query.filter_by(start_location_id=location_id).count()
+        journeys_end = Journey.query.filter_by(end_location_id=location_id).count()
+        
+        if journeys_start > 0 or journeys_end > 0:
+            return jsonify({
+                'success': False, 
+                'message': f'Cannot delete location that is used in {journeys_start + journeys_end} journeys'
+            }), 400
+            
+        # Delete location
+        db.session.delete(location)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Location deleted successfully'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error deleting location: {e}")
+        db.session.rollback()
+        return jsonify({'success': False, 'message': f'Server error: {str(e)}'}), 500
+
+# Manual journey routes
+@app.route('/manual-journey')
+def manual_journey():
+    """Render the manual journey page."""
+    locations = SavedLocation.query.order_by(SavedLocation.name).all()
+    return render_template('manual_journey.html', locations=locations)
+
+@app.route('/api/journey/manual', methods=['POST'])
+def create_manual_journey():
+    """API endpoint to create a manual journey between saved locations."""
+    try:
+        data = request.get_json()
+        start_location_id = data.get('start_location_id')
+        end_location_id = data.get('end_location_id')
+        
+        # Validate data
+        if not start_location_id:
+            return jsonify({'success': False, 'message': 'Start location is required'}), 400
+            
+        if not end_location_id:
+            return jsonify({'success': False, 'message': 'End location is required'}), 400
+            
+        # Get locations
+        start_location = SavedLocation.query.get(start_location_id)
+        end_location = SavedLocation.query.get(end_location_id)
+        
+        if not start_location:
+            return jsonify({'success': False, 'message': 'Start location not found'}), 404
+            
+        if not end_location:
+            return jsonify({'success': False, 'message': 'End location not found'}), 404
+            
+        # Calculate distance
+        distance = PostcodeService.calculate_distance(start_location.postcode, end_location.postcode)
+        if distance is None:
+            return jsonify({
+                'success': False, 
+                'message': 'Could not calculate distance between postcodes'
+            }), 400
+            
+        # Create journey (both start and end times are set)
+        now = datetime.utcnow()
+        journey = Journey(
+            start_postcode=start_location.postcode,
+            end_postcode=end_location.postcode,
+            start_time=now,
+            end_time=now,
+            distance_miles=distance,
+            is_manual=True,
+            start_location_id=start_location_id,
+            end_location_id=end_location_id
+        )
+        db.session.add(journey)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Manual journey created successfully',
+            'journey': journey.to_dict()
+        })
+        
+    except Exception as e:
+        logger.error(f"Error creating manual journey: {e}")
+        db.session.rollback()
         return jsonify({'success': False, 'message': f'Server error: {str(e)}'}), 500

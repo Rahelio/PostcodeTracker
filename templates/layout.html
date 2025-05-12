@@ -26,12 +26,22 @@
                 <ul class="navbar-nav ms-auto">
                     <li class="nav-item">
                         <a class="nav-link {% if request.path == '/' %}active{% endif %}" href="/">
-                            <i class="fas fa-play me-1"></i> New Journey
+                            <i class="fas fa-play me-1"></i> Auto Journey
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.path == '/manual-journey' %}active{% endif %}" href="/manual-journey">
+                            <i class="fas fa-route me-1"></i> Manual Journey
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.path == '/locations' %}active{% endif %}" href="/locations">
+                            <i class="fas fa-map-marker-alt me-1"></i> Locations
                         </a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link {% if request.path == '/history' %}active{% endif %}" href="/history">
-                            <i class="fas fa-history me-1"></i> Journey History
+                            <i class="fas fa-history me-1"></i> History
                         </a>
                     </li>
                 </ul>
