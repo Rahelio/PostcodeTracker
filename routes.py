@@ -209,8 +209,8 @@ def export_journeys(format_type):
         
         if export_format == 'csv':
             # For CSV, create a file and return it
-            import tempfile
-            journey_data = get_journey_data(journey_ids)
+            from export_util import get_journey_data as get_data
+            journey_data = get_data(journey_ids)
             
             if not journey_data:
                 return jsonify({
@@ -239,10 +239,9 @@ def export_journeys(format_type):
             
         else:  # excel
             # For Excel, create a file and return it
-            import tempfile
-            from export_util import get_journey_data
+            from export_util import get_journey_data as get_data
             
-            journey_data = get_journey_data(journey_ids)
+            journey_data = get_data(journey_ids)
             
             if not journey_data:
                 return jsonify({

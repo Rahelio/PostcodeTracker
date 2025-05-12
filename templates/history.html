@@ -187,15 +187,14 @@ document.addEventListener('DOMContentLoaded', function() {
         // Show loading state
         showAlert(`Preparing ${format.toUpperCase()} export...`, 'info');
         
-        // Make API request
-        fetch('/api/journeys/export', {
+        // Make API request to the correct endpoint with format in URL
+        fetch(`/api/journeys/export/${format}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                journey_ids: selectedIds,
-                format: format
+                journey_ids: selectedIds
             })
         })
         .then(response => {
