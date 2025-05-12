@@ -97,16 +97,22 @@ def export_to_excel(journey_ids: Optional[List[int]] = None) -> Optional[io.Byte
         # Convert to DataFrame
         df = pd.DataFrame(journey_data)
         
-        # Write to Excel
+        # Create temporary file for Excel
+        import tempfile
+        with tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False) as tmp:
+            temp_filename = tmp.name
+        
+        # Write DataFrame to Excel file
+        df.to_excel(temp_filename, sheet_name='Journey History', index=False, engine='openpyxl')
+        
+        # Read the file back into memory
         output = io.BytesIO()
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            df.to_excel(writer, sheet_name='Journey History', index=False)
-            
-            # Auto-adjust column width
-            worksheet = writer.sheets['Journey History']
-            for i, col in enumerate(df.columns):
-                max_width = max(df[col].astype(str).str.len().max(), len(col)) + 2
-                worksheet.column_dimensions[chr(65 + i)].width = max_width
+        with open(temp_filename, 'rb') as file:
+            output.write(file.read())
+        
+        # Clean up the temporary file
+        import os
+        os.unlink(temp_filename)
         
         output.seek(0)
         return output

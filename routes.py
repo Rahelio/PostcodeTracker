@@ -2,10 +2,14 @@ from flask import render_template, request, jsonify, flash, redirect, url_for, s
 from datetime import datetime
 import logging
 import json
+import io
+import pandas as pd
+import tempfile
+import csv
 from app import app, db
 from models import Journey
 from postcode_service import PostcodeService
-from export_util import export_to_csv, export_to_excel
+from export_util import export_to_csv, export_to_excel, get_journey_data
 
 logger = logging.getLogger(__name__)
 
@@ -168,4 +172,99 @@ def get_postcode_from_coordinates():
             
     except Exception as e:
         logger.error(f"Error converting coordinates to postcode: {e}")
+        return jsonify({'success': False, 'message': f'Server error: {str(e)}'}), 500
+
+@app.route('/api/journeys/export/<format_type>', methods=['POST'])
+def export_journeys(format_type):
+    """API endpoint to export selected journeys in CSV or Excel format."""
+    try:
+        data = request.get_json()
+        journey_ids = data.get('journey_ids', [])
+        
+        # Normalize format type
+        export_format = format_type.lower()
+        
+        # Log export request
+        logger.info(f"Export request: format={export_format}, journey_ids={journey_ids}")
+        
+        # Validate format
+        if export_format not in ['csv', 'excel']:
+            return jsonify({
+                'success': False,
+                'message': 'Invalid export format. Supported formats: csv, excel'
+            }), 400
+        
+        # Convert journey_ids to integers if they are strings
+        if journey_ids:
+            try:
+                journey_ids = [int(id) for id in journey_ids]
+            except ValueError:
+                return jsonify({
+                    'success': False,
+                    'message': 'Invalid journey ID format'
+                }), 400
+        
+        # Generate export file
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        
+        if export_format == 'csv':
+            # For CSV, create a file and return it
+            import tempfile
+            journey_data = get_journey_data(journey_ids)
+            
+            if not journey_data:
+                return jsonify({
+                    'success': False,
+                    'message': 'No journey data available for export'
+                }), 404
+                
+            # Create a temporary file
+            temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.csv')
+            filename = f"journey_history_{timestamp}.csv"
+            
+            # Write CSV data
+            import csv
+            with open(temp_file.name, 'w', newline='') as f:
+                fieldnames = journey_data[0].keys()
+                writer = csv.DictWriter(f, fieldnames=fieldnames)
+                writer.writeheader()
+                writer.writerows(journey_data)
+            
+            return send_file(
+                temp_file.name,
+                as_attachment=True,
+                download_name=filename,
+                mimetype='text/csv'
+            )
+            
+        else:  # excel
+            # For Excel, create a file and return it
+            import tempfile
+            from export_util import get_journey_data
+            
+            journey_data = get_journey_data(journey_ids)
+            
+            if not journey_data:
+                return jsonify({
+                    'success': False,
+                    'message': 'No journey data available for export'
+                }), 404
+                
+            # Create a temporary file
+            temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx')
+            filename = f"journey_history_{timestamp}.xlsx"
+            
+            # Convert to DataFrame and save to Excel
+            df = pd.DataFrame(journey_data)
+            df.to_excel(temp_file.name, sheet_name='Journey History', index=False)
+            
+            return send_file(
+                temp_file.name,
+                as_attachment=True,
+                download_name=filename,
+                mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            )
+            
+    except Exception as e:
+        logger.error(f"Error exporting journeys: {e}")
         return jsonify({'success': False, 'message': f'Server error: {str(e)}'}), 500
