@@ -39,8 +39,9 @@ def run_migration():
         # Create the saved_location table if it doesn't exist
         if 'saved_location' not in inspector.get_table_names():
             print("Creating saved_location table...")
-            SavedLocation.__table__.create(engine)
-            print("SavedLocation table created.")
+            # Use create_all to create all missing tables
+            db.create_all()
+            print("Missing tables created.")
         
         # Add the columns to journey table
         if cols_to_add:

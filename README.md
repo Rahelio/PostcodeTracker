@@ -50,7 +50,13 @@ cp .env.example .env
 
 ### Running the Application
 
-Run the Flask development server:
+1. If you're running the app for the first time or after pulling updates, run the database migration script:
+
+```bash
+python migrate.py
+```
+
+2. Run the Flask development server:
 
 ```bash
 python main.py
