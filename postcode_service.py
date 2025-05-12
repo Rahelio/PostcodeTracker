@@ -11,6 +11,34 @@ class PostcodeService:
     BASE_URL = "https://api.postcodes.io"
     
     @staticmethod
+    def get_postcode_from_coordinates(latitude: float, longitude: float) -> Optional[str]:
+        """
+        Reverse geocodes coordinates to find the nearest UK postcode.
+        
+        Args:
+            latitude: The latitude coordinate
+            longitude: The longitude coordinate
+            
+        Returns:
+            Optional[str]: The nearest postcode or None if not found
+        """
+        try:
+            url = f"{PostcodeService.BASE_URL}/postcodes?lon={longitude}&lat={latitude}"
+            logger.debug(f"Making reverse geocode request to: {url}")
+            
+            response = requests.get(url)
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('status') == 200 and data.get('result') and len(data['result']) > 0:
+                    return data['result'][0]['postcode']
+            
+            logger.warning(f"Failed to find postcode for coordinates ({latitude}, {longitude})")
+            return None
+        except Exception as e:
+            logger.error(f"Error in reverse geocoding: {e}")
+            return None
+    
+    @staticmethod
     def validate_postcode(postcode: str) -> bool:
         """
         Validates a UK postcode format.
@@ -79,10 +107,20 @@ class PostcodeService:
             
             if None in (start_lat, start_lon, end_lat, end_lon):
                 return None
+            
+            # Convert to float to ensure type safety
+            try:
+                start_lat_float = float(start_lat)
+                start_lon_float = float(start_lon)
+                end_lat_float = float(end_lat)
+                end_lon_float = float(end_lon)
+            except (ValueError, TypeError):
+                logger.error("Could not convert coordinates to float")
+                return None
                 
             # Calculate distance using Haversine formula
             distance_km = PostcodeService._haversine(
-                start_lat, start_lon, end_lat, end_lon
+                start_lat_float, start_lon_float, end_lat_float, end_lon_float
             )
             
             # Convert to miles (1 km = 0.621371 miles)

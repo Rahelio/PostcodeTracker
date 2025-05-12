@@ -16,25 +16,24 @@
                 
                 <!-- Start Journey Form -->
                 <form id="start-journey-form" class="{% if active_journey %}d-none{% endif %}">
-                    <div class="mb-3">
-                        <label for="start-postcode" class="form-label">Start Postcode</label>
-                        <div class="input-group">
-                            <span class="input-group-text"><i class="fas fa-map-marker-alt"></i></span>
-                            <input type="text" 
-                                   class="form-control uk-postcode" 
-                                   id="start-postcode" 
-                                   placeholder="e.g. SW1A 1AA"
-                                   pattern="^[A-Za-z]{1,2}[0-9][A-Za-z0-9]? ?[0-9][A-Za-z]{2}$"
-                                   autocomplete="postal-code"
-                                   required>
+                    <div class="text-center mb-4">
+                        <div class="mb-3">
+                            <h5><i class="fas fa-map-marker-alt me-2"></i>Record Current Location</h5>
+                            <p class="text-muted">The app will detect your current location and record your starting postcode</p>
                         </div>
-                        <div class="form-text">Enter a valid UK postcode to begin your journey</div>
-                    </div>
-                    
-                    <div class="d-grid">
-                        <button type="submit" class="btn btn-primary">
-                            <i class="fas fa-play me-2"></i>Start Journey
-                        </button>
+                        
+                        <div id="location-status"></div>
+                        
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary btn-lg" id="start-locating-btn" data-original-text='<i class="fas fa-play me-2"></i>Start Journey'>
+                                <i class="fas fa-play me-2"></i>Start Journey
+                            </button>
+                        </div>
+                        
+                        <div class="mt-2 small text-muted">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Please allow location access when prompted
+                        </div>
                     </div>
                 </form>
                 
@@ -55,25 +54,22 @@
                     </div>
                     
                     <form id="end-journey-form">
-                        <div class="mb-3">
-                            <label for="end-postcode" class="form-label">End Postcode</label>
-                            <div class="input-group">
-                                <span class="input-group-text"><i class="fas fa-flag-checkered"></i></span>
-                                <input type="text" 
-                                       class="form-control uk-postcode" 
-                                       id="end-postcode" 
-                                       placeholder="e.g. EC1A 1BB"
-                                       pattern="^[A-Za-z]{1,2}[0-9][A-Za-z0-9]? ?[0-9][A-Za-z]{2}$"
-                                       autocomplete="postal-code"
-                                       required>
+                        <div class="text-center mb-4">
+                            <div class="mb-3">
+                                <h5><i class="fas fa-flag-checkered me-2"></i>Record Arrival Location</h5>
+                                <p class="text-muted">The app will detect your current location and record your destination postcode</p>
                             </div>
-                            <div class="form-text">Enter your destination postcode to complete the journey</div>
-                        </div>
-                        
-                        <div class="d-grid">
-                            <button type="submit" class="btn btn-success">
-                                <i class="fas fa-stop me-2"></i>End Journey
-                            </button>
+                            
+                            <div class="d-grid">
+                                <button type="submit" class="btn btn-success btn-lg" id="end-locating-btn" data-original-text='<i class="fas fa-stop me-2"></i>End Journey'>
+                                    <i class="fas fa-stop me-2"></i>End Journey
+                                </button>
+                            </div>
+                            
+                            <div class="mt-2 small text-muted">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Please allow location access when prompted
+                            </div>
                         </div>
                     </form>
                 </div>
@@ -124,8 +120,12 @@
             <div class="card-body">
                 <h5 class="card-title"><i class="fas fa-info-circle me-2"></i>About This App</h5>
                 <p class="card-text">
-                    This application calculates the straight-line (as the crow flies) distance between UK postcodes.
-                    The actual driving distance may be longer depending on roads and routes.
+                    This application automatically detects your location when you start and end a journey, 
+                    converting your GPS coordinates to UK postcodes. It then calculates the straight-line 
+                    (as the crow flies) distance between these postcodes.
+                </p>
+                <p class="card-text">
+                    <i class="fas fa-map-marker-alt text-danger me-1"></i> Location permission is required for this app to work correctly.
                 </p>
                 <p class="card-text mb-0">
                     <small>Powered by Postcodes.io API for UK postcode validation and coordinate lookup.</small>

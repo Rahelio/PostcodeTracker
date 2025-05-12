@@ -132,3 +132,38 @@ def get_journeys():
     except Exception as e:
         logger.error(f"Error fetching journeys: {e}")
         return jsonify({'success': False, 'message': f'Server error: {str(e)}'}), 500
+
+@app.route('/api/postcode/from-coordinates', methods=['POST'])
+def get_postcode_from_coordinates():
+    """API endpoint to convert coordinates to a UK postcode."""
+    try:
+        data = request.get_json()
+        latitude = data.get('latitude')
+        longitude = data.get('longitude')
+        
+        if latitude is None or longitude is None:
+            return jsonify({
+                'success': False, 
+                'message': 'Both latitude and longitude are required'
+            }), 400
+        
+        # Log the coordinates received
+        logger.info(f"Received coordinates: lat={latitude}, lon={longitude}")
+        
+        # Get postcode from coordinates
+        postcode = PostcodeService.get_postcode_from_coordinates(latitude, longitude)
+        
+        if postcode:
+            return jsonify({
+                'success': True,
+                'postcode': postcode
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': 'Could not find a UK postcode for these coordinates'
+            }), 404
+            
+    except Exception as e:
+        logger.error(f"Error converting coordinates to postcode: {e}")
+        return jsonify({'success': False, 'message': f'Server error: {str(e)}'}), 500

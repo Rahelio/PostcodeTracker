@@ -16,39 +16,126 @@ document.addEventListener('DOMContentLoaded', function() {
     const endPostcodeResult = document.getElementById('end-postcode-result');
     const distanceResult = document.getElementById('distance-result');
     
+    // Location status elements
+    const locationStatusContainer = document.getElementById('location-status');
+    const startLocatingBtn = document.getElementById('start-locating-btn');
+    const endLocatingBtn = document.getElementById('end-locating-btn');
+    
     // Alert elements
     const alertContainer = document.getElementById('alert-container');
     
     // Check if a journey is already in progress on page load
     checkActiveJourney();
     
-    // Start journey form submission
+    // Start journey with current location
     if (startJourneyForm) {
         startJourneyForm.addEventListener('submit', function(e) {
             e.preventDefault();
-            
-            const startPostcode = document.getElementById('start-postcode').value.trim();
-            if (!startPostcode) {
-                showAlert('Please enter a start postcode', 'danger');
-                return;
-            }
-            
-            startJourney(startPostcode);
+            getCurrentLocation('start');
         });
     }
     
-    // End journey form submission
+    // End journey with current location
     if (endJourneyForm) {
         endJourneyForm.addEventListener('submit', function(e) {
             e.preventDefault();
-            
-            const endPostcode = document.getElementById('end-postcode').value.trim();
-            if (!endPostcode) {
-                showAlert('Please enter an end postcode', 'danger');
-                return;
+            getCurrentLocation('end');
+        });
+    }
+    
+    // Get current location and then convert to postcode
+    function getCurrentLocation(action) {
+        if (!navigator.geolocation) {
+            showAlert('Geolocation is not supported by your browser', 'danger');
+            return;
+        }
+        
+        const statusElement = action === 'start' ? startLocatingBtn : endLocatingBtn;
+        const originalText = statusElement.innerHTML;
+        
+        // Update button to show loading state
+        statusElement.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Getting location...';
+        statusElement.disabled = true;
+        
+        navigator.geolocation.getCurrentPosition(
+            // Success callback
+            function(position) {
+                const latitude = position.coords.latitude;
+                const longitude = position.coords.longitude;
+                
+                // Convert coordinates to UK postcode
+                convertCoordsToPostcode(latitude, longitude, action);
+            },
+            // Error callback
+            function(error) {
+                // Restore the button text from data attribute
+                const buttonText = statusElement.getAttribute('data-original-text');
+                statusElement.innerHTML = buttonText;
+                statusElement.disabled = false;
+                
+                let errorMessage = 'Unable to retrieve your location';
+                switch(error.code) {
+                    case error.PERMISSION_DENIED:
+                        errorMessage = 'Location permission denied. Please allow location access and try again.';
+                        break;
+                    case error.POSITION_UNAVAILABLE:
+                        errorMessage = 'Location information is unavailable. Please try again.';
+                        break;
+                    case error.TIMEOUT:
+                        errorMessage = 'Location request timed out. Please try again.';
+                        break;
+                }
+                showAlert(errorMessage, 'danger');
+            },
+            // Options
+            {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 0
             }
+        );
+    }
+    
+    // Convert coordinates to UK postcode using our server endpoint
+    function convertCoordsToPostcode(latitude, longitude, action) {
+        const statusElement = action === 'start' ? startLocatingBtn : endLocatingBtn;
+        const originalText = statusElement.getAttribute('data-original-text');
+        
+        // Use our server API to convert coordinates
+        fetch('/api/postcode/from-coordinates', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ 
+                latitude: latitude, 
+                longitude: longitude 
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            statusElement.innerHTML = originalText;
+            statusElement.disabled = false;
             
-            endJourney(endPostcode);
+            if (data.success && data.postcode) {
+                const postcode = data.postcode;
+                
+                // Show user what postcode was detected
+                showAlert(`Detected postcode: ${formatPostcode(postcode)}`, 'info');
+                
+                if (action === 'start') {
+                    startJourney(postcode);
+                } else {
+                    endJourney(postcode);
+                }
+            } else {
+                showAlert(data.message || 'Could not find a UK postcode for your current location', 'warning');
+            }
+        })
+        .catch(error => {
+            statusElement.innerHTML = originalText;
+            statusElement.disabled = false;
+            showAlert('Error converting location to postcode: ' + error.message, 'danger');
         });
     }
     
