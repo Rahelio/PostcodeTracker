@@ -18,20 +18,35 @@ db = SQLAlchemy(model_class=Base)
 app = Flask(__name__)
 app.secret_key = os.environ.get("SESSION_SECRET", "dev-secret-key")
 
-# Configure PostgreSQL database
+# Configure database - handle both PostgreSQL and SQLite for local development
 database_url = os.environ.get("DATABASE_URL")
-if database_url and database_url.startswith("postgres://"):
+
+# If DATABASE_URL is not provided, use SQLite as a fallback for local development
+if not database_url:
+    # Use SQLite file in the current directory
+    database_path = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'postcode_distances.db')
+    database_url = f"sqlite:///{database_path}"
+    print(f"Database URL not found. Using SQLite: {database_url}")
+elif database_url.startswith("postgres://"):
     # Heroku-style URL - replace for SQLAlchemy 1.4+ compatibility
     database_url = database_url.replace("postgres://", "postgresql://", 1)
 
 app.config["SQLALCHEMY_DATABASE_URI"] = database_url
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
-    "pool_recycle": 300,
-    "pool_pre_ping": True,
-    "pool_size": 10,
-    "max_overflow": 20,
-}
+
+# Set engine options based on database type
+if database_url.startswith("postgresql"):
+    app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+        "pool_recycle": 300,
+        "pool_pre_ping": True,
+        "pool_size": 10,
+        "max_overflow": 20,
+    }
+else:
+    # Simpler config for SQLite
+    app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+        "pool_pre_ping": True,
+    }
 
 # Initialize the app with the extension
 db.init_app(app)
