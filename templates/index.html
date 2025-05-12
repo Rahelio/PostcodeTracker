@@ -1,0 +1,137 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-route me-2"></i>UK Postcode Distance Calculator
+                </h5>
+            </div>
+            <div class="card-body">
+                <p class="card-text">
+                    Track the distance between UK postcodes. Start a journey at one location and end it at another to calculate the distance in miles.
+                </p>
+                
+                <!-- Start Journey Form -->
+                <form id="start-journey-form" class="{% if active_journey %}d-none{% endif %}">
+                    <div class="mb-3">
+                        <label for="start-postcode" class="form-label">Start Postcode</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-map-marker-alt"></i></span>
+                            <input type="text" 
+                                   class="form-control uk-postcode" 
+                                   id="start-postcode" 
+                                   placeholder="e.g. SW1A 1AA"
+                                   pattern="^[A-Za-z]{1,2}[0-9][A-Za-z0-9]? ?[0-9][A-Za-z]{2}$"
+                                   autocomplete="postal-code"
+                                   required>
+                        </div>
+                        <div class="form-text">Enter a valid UK postcode to begin your journey</div>
+                    </div>
+                    
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-play me-2"></i>Start Journey
+                        </button>
+                    </div>
+                </form>
+                
+                <!-- Active Journey Panel -->
+                <div id="active-journey-panel" class="journey-panel {% if not active_journey %}d-none{% endif %}">
+                    <div class="alert alert-info mb-3">
+                        <h5 class="alert-heading">
+                            <i class="fas fa-car me-2"></i>Journey in Progress
+                        </h5>
+                        <p>Your journey started at <span id="start-postcode-display" class="postcode-display">
+                            {% if active_journey %}{{ active_journey.start_postcode }}{% endif %}
+                        </span></p>
+                        <p class="mb-0">
+                            <small>Started at: <span id="journey-start-time">
+                                {% if active_journey %}{{ active_journey.start_time.strftime('%Y-%m-%d %H:%M:%S') }}{% endif %}
+                            </span></small>
+                        </p>
+                    </div>
+                    
+                    <form id="end-journey-form">
+                        <div class="mb-3">
+                            <label for="end-postcode" class="form-label">End Postcode</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fas fa-flag-checkered"></i></span>
+                                <input type="text" 
+                                       class="form-control uk-postcode" 
+                                       id="end-postcode" 
+                                       placeholder="e.g. EC1A 1BB"
+                                       pattern="^[A-Za-z]{1,2}[0-9][A-Za-z0-9]? ?[0-9][A-Za-z]{2}$"
+                                       autocomplete="postal-code"
+                                       required>
+                            </div>
+                            <div class="form-text">Enter your destination postcode to complete the journey</div>
+                        </div>
+                        
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-stop me-2"></i>End Journey
+                            </button>
+                        </div>
+                    </form>
+                </div>
+                
+                <!-- Journey Result Panel -->
+                <div id="completed-journey-panel" class="journey-panel d-none">
+                    <div class="text-center mb-4">
+                        <h4 class="mb-3">Journey Completed!</h4>
+                        <div class="my-4 py-2">
+                            <div class="d-flex justify-content-center align-items-center flex-wrap gap-3">
+                                <div>
+                                    <span class="postcode-display" id="start-postcode-result"></span>
+                                    <div><small class="text-muted">Start</small></div>
+                                </div>
+                                <div>
+                                    <i class="fas fa-arrow-right mx-3"></i>
+                                </div>
+                                <div>
+                                    <span class="postcode-display" id="end-postcode-result"></span>
+                                    <div><small class="text-muted">End</small></div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="py-3">
+                            <div class="h2 mb-0">
+                                <span id="distance-result"></span>
+                                <small class="text-muted">miles</small>
+                            </div>
+                            <p class="text-muted">Distance via direct route</p>
+                        </div>
+                        
+                        <div class="mt-4 d-grid gap-2">
+                            <a href="/" class="btn btn-primary">
+                                <i class="fas fa-redo me-2"></i>Start New Journey
+                            </a>
+                            <a href="/history" class="btn btn-outline-secondary">
+                                <i class="fas fa-history me-2"></i>View Journey History
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Info Card -->
+        <div class="card bg-dark text-light">
+            <div class="card-body">
+                <h5 class="card-title"><i class="fas fa-info-circle me-2"></i>About This App</h5>
+                <p class="card-text">
+                    This application calculates the straight-line (as the crow flies) distance between UK postcodes.
+                    The actual driving distance may be longer depending on roads and routes.
+                </p>
+                <p class="card-text mb-0">
+                    <small>Powered by Postcodes.io API for UK postcode validation and coordinate lookup.</small>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,68 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-10">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-secondary text-white">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-history me-2"></i>Journey History
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if journeys %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Start Postcode</th>
+                                    <th>End Postcode</th>
+                                    <th class="text-end">Distance (miles)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for journey in journeys %}
+                                <tr class="journey-card">
+                                    <td>{{ journey.end_time.strftime('%Y-%m-%d %H:%M') }}</td>
+                                    <td>
+                                        <span class="postcode-display">{{ journey.start_postcode }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="postcode-display">{{ journey.end_postcode }}</span>
+                                    </td>
+                                    <td class="text-end">
+                                        <span class="badge bg-primary rounded-pill distance-badge">
+                                            {{ journey.distance_miles }}
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center py-5">
+                        <div class="display-1 text-muted mb-3">
+                            <i class="fas fa-map"></i>
+                        </div>
+                        <h5>No journey history yet</h5>
+                        <p class="text-muted">Complete a journey to see it in your history</p>
+                        <a href="/" class="btn btn-primary mt-3">
+                            <i class="fas fa-play me-2"></i>Start a Journey
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        {% if journeys %}
+        <div class="d-grid gap-2 col-md-6 mx-auto">
+            <a href="/" class="btn btn-primary">
+                <i class="fas fa-plus me-2"></i>Start New Journey
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

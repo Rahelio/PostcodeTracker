@@ -1,0 +1,63 @@
+/* Custom CSS - minimal overrides to the bootstrap theme */
+
+/* Body padding for mobile */
+body {
+    padding-bottom: 4rem;
+}
+
+/* Stylized postcode display */
+.postcode-display {
+    font-family: monospace;
+    font-weight: bold;
+    padding: 0.3rem 0.5rem;
+    background: var(--bs-dark);
+    border-radius: 0.25rem;
+    display: inline-block;
+    letter-spacing: 1px;
+}
+
+/* Journey card styling */
+.journey-card {
+    transition: transform 0.2s ease;
+}
+
+.journey-card:hover {
+    transform: translateY(-3px);
+}
+
+/* Distance display */
+.distance-badge {
+    font-size: 1.25rem;
+    font-weight: bold;
+}
+
+/* Better spacing for form elements on mobile */
+@media (max-width: 576px) {
+    .form-control, .btn {
+        margin-bottom: 0.5rem;
+    }
+}
+
+/* UK postcode input validation styling */
+.uk-postcode:valid {
+    border-color: var(--bs-success);
+}
+
+.uk-postcode:invalid:not(:placeholder-shown) {
+    border-color: var(--bs-danger);
+}
+
+/* Animated journey panel */
+.journey-panel {
+    transition: all 0.3s ease;
+}
+
+.journey-panel.d-none {
+    opacity: 0;
+    transform: translateY(-10px);
+}
+
+.journey-panel:not(.d-none) {
+    opacity: 1;
+    transform: translateY(0);
+}
