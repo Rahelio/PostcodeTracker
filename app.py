@@ -1,11 +1,17 @@
 import os
 import logging
+import sys
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase
 
 # Configure logging
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    stream=sys.stdout
+)
+logger = logging.getLogger(__name__)
 
 # Set up SQLAlchemy base class
 class Base(DeclarativeBase):
@@ -20,16 +26,22 @@ app.secret_key = os.environ.get("SESSION_SECRET", "dev-secret-key")
 
 # Configure database - handle both PostgreSQL and SQLite for local development
 database_url = os.environ.get("DATABASE_URL")
+logger.debug(f"Initial DATABASE_URL from environment: {database_url}")
 
 # If DATABASE_URL is not provided, use SQLite as a fallback for local development
 if not database_url:
     # Use SQLite file in the current directory
     database_path = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'postcode_distances.db')
     database_url = f"sqlite:///{database_path}"
-    print(f"Database URL not found. Using SQLite: {database_url}")
+    logger.warning(f"Database URL not found. Using SQLite: {database_url}")
+    logger.warning("To use PostgreSQL, set the DATABASE_URL environment variable")
+    logger.warning("Example: DATABASE_URL=postgresql://username:password@localhost:5432/dbname")
 elif database_url.startswith("postgres://"):
     # Heroku-style URL - replace for SQLAlchemy 1.4+ compatibility
     database_url = database_url.replace("postgres://", "postgresql://", 1)
+    logger.debug(f"Converted postgres:// to postgresql:// URL: {database_url}")
+
+logger.debug(f"Final database URL being used: {database_url}")
 
 app.config["SQLALCHEMY_DATABASE_URI"] = database_url
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
@@ -42,17 +54,25 @@ if database_url.startswith("postgresql"):
         "pool_size": 10,
         "max_overflow": 20,
     }
+    logger.debug("Using PostgreSQL configuration")
 else:
     # Simpler config for SQLite
     app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
         "pool_pre_ping": True,
     }
+    logger.debug("Using SQLite configuration")
 
 # Initialize the app with the extension
 db.init_app(app)
 
 with app.app_context():
-    # Import models here to avoid circular imports
-    import models
-    # Create all database tables
-    db.create_all()
+    try:
+        # Import models here to avoid circular imports
+        import models
+        # Create all database tables
+        db.create_all()
+        logger.debug("Database tables created successfully")
+    except Exception as e:
+        logger.error(f"Error initializing database: {str(e)}")
+        logger.error("Please check your database configuration and ensure PostgreSQL is running")
+        raise
