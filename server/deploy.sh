@@ -3,6 +3,9 @@
 # Exit on error
 set -e
 
+# Get the directory where the script is located
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+
 # Create virtual environment if it doesn't exist
 if [ ! -d "venv" ]; then
     echo "Creating virtual environment..."
@@ -31,7 +34,7 @@ fi
 
 # Create systemd service file
 echo "Creating systemd service file..."
-sudo cp postcode-tracker.service /etc/systemd/system/
+sudo cp "$SCRIPT_DIR/postcode-tracker.service" /etc/systemd/system/
 sudo sed -i "s|YOUR_USERNAME|$USER|g" /etc/systemd/system/postcode-tracker.service
 sudo sed -i "s|YOUR_GROUP|$(id -gn)|g" /etc/systemd/system/postcode-tracker.service
 sudo sed -i "s|/path/to/your/app|$(pwd)|g" /etc/systemd/system/postcode-tracker.service
