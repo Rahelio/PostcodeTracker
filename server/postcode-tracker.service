@@ -1,0 +1,16 @@
+[Unit]
+Description=Postcode Tracker API Service
+After=network.target
+
+[Service]
+User=YOUR_USERNAME
+Group=YOUR_GROUP
+WorkingDirectory=/path/to/your/app
+Environment="PATH=/path/to/your/venv/bin"
+Environment="DATABASE_URL=postgresql://username:password@localhost:5432/dbname"
+Environment="JWT_SECRET_KEY=your-secure-secret-key"
+ExecStart=/path/to/your/venv/bin/gunicorn -c gunicorn_config.py app:app
+Restart=always
+
+[Install]
+WantedBy=multi-user.target 
