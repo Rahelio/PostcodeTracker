@@ -1,25 +1,19 @@
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
 import os
 
+DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://postgres:postgres@localhost/postcode_tracker')
+
+engine = create_engine(DATABASE_URL)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
-# Get database URL from environment
-database_url = os.environ.get("DATABASE_URL")
-if database_url and database_url.startswith("postgres://"):
-    database_url = database_url.replace("postgres://", "postgresql://", 1)
-
-# Create engine
-engine = create_engine(database_url)
-
-# Create session factory
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-# Create all tables
 def init_db():
+    # Drop all tables and recreate them
+    Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
 
-# Get database session
 def get_db():
     db = SessionLocal()
     try:
