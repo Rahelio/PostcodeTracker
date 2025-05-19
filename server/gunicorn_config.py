@@ -25,6 +25,7 @@ response_headers = [
     ('Content-Type', 'application/json'),
     ('Connection', 'keep-alive'),
     ('Keep-Alive', 'timeout=65'),
+    ('X-Protocol', 'HTTP/1.1'),
 ]
 
 # Logging
