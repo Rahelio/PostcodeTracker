@@ -5,14 +5,14 @@ After=network.target
 [Service]
 User=rick
 Group=rick
-WorkingDirectory=/home/rick/PostcodeTracker/server
+WorkingDirectory=/home/rick/PostcodeTracker
 Environment="PATH=/home/rick/PostcodeTracker/venv/bin"
-Environment="PYTHONPATH=/home/rick/PostcodeTracker/server"
+Environment="PYTHONPATH=/home/rick/PostcodeTracker"
 Environment="DATABASE_URL=postgresql://locator:Aberdeen24@0.0.0.0:5432/postcodetrackerdb"
 Environment="JWT_SECRET_KEY=8bed273fc8ae7890a3d0a529527106d61c39bfe8d8151a78569de048647a62c7"
 Environment="PYTHONUNBUFFERED=1"
 Environment="FLASK_DEBUG=1"
-ExecStart=/home/rick/PostcodeTracker/venv/bin/gunicorn -c gunicorn_config.py app:app
+ExecStart=/home/rick/PostcodeTracker/venv/bin/gunicorn -c server/gunicorn_config.py server.app:app
 Restart=always
 
 [Install]

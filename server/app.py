@@ -5,10 +5,10 @@ from flask import Flask, jsonify
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from datetime import timedelta
-from .database import init_db
+from server.database import init_db
 from dotenv import load_dotenv
-from .api.auth import auth_bp
-from .api.postcodes import postcodes_bp
+from server.api.auth import auth_bp
+from server.api.postcodes import postcodes_bp
 
 # Load environment variables from .env file
 load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
