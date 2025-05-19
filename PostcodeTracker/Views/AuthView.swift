@@ -60,11 +60,40 @@ struct AuthView: View {
         isLoading = true
         errorMessage = nil
         
-        // TODO: Implement API calls
-        // For now, we'll just simulate a successful login
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-            isLoading = false
-            authManager.login(token: "dummy-token")
+        Task {
+            do {
+                if isLogin {
+                    let token = try await APIService.shared.login(username: username, password: password)
+                    await MainActor.run {
+                        authManager.login(token: token)
+                    }
+                } else {
+                    let message = try await APIService.shared.register(username: username, password: password)
+                    await MainActor.run {
+                        // After successful registration, automatically log in
+                        Task {
+                            do {
+                                let token = try await APIService.shared.login(username: username, password: password)
+                                await MainActor.run {
+                                    authManager.login(token: token)
+                                }
+                            } catch {
+                                await MainActor.run {
+                                    errorMessage = error.localizedDescription
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    errorMessage = error.localizedDescription
+                }
+            }
+            
+            await MainActor.run {
+                isLoading = false
+            }
         }
     }
 }
