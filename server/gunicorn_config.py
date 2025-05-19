@@ -5,16 +5,16 @@ bind = "0.0.0.0:5000"
 backlog = 2048
 
 # Worker processes
-workers = multiprocessing.cpu_count() * 2 + 1
+workers = 1  # Reduced to 1 for debugging
 worker_class = 'sync'
 worker_connections = 1000
 timeout = 30
 keepalive = 2
 
 # Logging
-accesslog = "logs/access.log"
-errorlog = "logs/error.log"
-loglevel = "info"
+accesslog = "-"  # Log to stdout
+errorlog = "-"   # Log to stderr
+loglevel = "debug"  # Increased log level
 
 # Process naming
 proc_name = "postcode_tracker"
