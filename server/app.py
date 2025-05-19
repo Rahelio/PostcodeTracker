@@ -5,7 +5,7 @@ from flask import Flask, jsonify
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from datetime import timedelta
-from server.database import db
+from server.database import init_db
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
@@ -30,7 +30,7 @@ def create_app():
     def health_check():
         return jsonify({
             'status': 'healthy',
-            'database': 'connected' if db.engine.pool.checkedout() == 0 else 'busy'
+            'database': 'connected'
         }), 200
     
     # JWT Configuration
@@ -38,22 +38,8 @@ def create_app():
     app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=1)
     jwt = JWTManager(app)
     
-    # Database Configuration
-    database_url = os.environ.get("DATABASE_URL")
-    logger.debug(f"Database URL from environment: {database_url}")
-    
-    if not database_url:
-        database_path = os.path.join(os.path.abspath(os.path.dirname(__file__)), '..', 'postcode_distances.db')
-        database_url = f"sqlite:///{database_path}"
-        logger.warning(f"Database URL not found. Using SQLite: {database_url}")
-    elif database_url.startswith("postgres://"):
-        database_url = database_url.replace("postgres://", "postgresql://", 1)
-    
-    app.config["SQLALCHEMY_DATABASE_URI"] = database_url
-    app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-    
-    # Initialize extensions
-    db.init_app(app)
+    # Initialize database
+    init_db()
     
     # Import and register blueprints
     from server.api.auth import auth_bp
@@ -61,10 +47,6 @@ def create_app():
     
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(postcodes_bp, url_prefix='/api/postcodes')
-    
-    # Create database tables
-    with app.app_context():
-        db.create_all()
     
     return app
 

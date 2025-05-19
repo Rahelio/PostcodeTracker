@@ -1,14 +1,15 @@
-from database import db
 from datetime import datetime
+from server.database import Base
+from sqlalchemy import Column, Integer, String, DateTime
 
-class User(db.Model):
+class User(Base):
     __tablename__ = 'users'
     
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(80), unique=True, nullable=False)
-    password = db.Column(db.String(120), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    id = Column(Integer, primary_key=True)
+    username = Column(String(80), unique=True, nullable=False)
+    password = Column(String(120), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     def __repr__(self):
         return f'<User {self.username}>' 

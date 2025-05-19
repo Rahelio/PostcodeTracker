@@ -1,12 +1,28 @@
-from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker, declarative_base
+import os
 
-class Base(DeclarativeBase):
-    pass
+Base = declarative_base()
 
-db = SQLAlchemy(model_class=Base)
+# Get database URL from environment
+database_url = os.environ.get("DATABASE_URL")
+if database_url and database_url.startswith("postgres://"):
+    database_url = database_url.replace("postgres://", "postgresql://", 1)
 
-def init_db(app):
-    db.init_app(app)
-    with app.app_context():
-        db.create_all() 
+# Create engine
+engine = create_engine(database_url)
+
+# Create session factory
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+# Create all tables
+def init_db():
+    Base.metadata.create_all(bind=engine)
+
+# Get database session
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close() 

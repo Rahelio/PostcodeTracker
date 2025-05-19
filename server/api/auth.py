@@ -2,7 +2,7 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
 from werkzeug.security import generate_password_hash, check_password_hash
 from server.models.user import User
-from server.database import db
+from server.database import get_db
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -13,7 +13,8 @@ def register():
     if not data or not data.get('username') or not data.get('password'):
         return jsonify({'error': 'Missing required fields'}), 400
     
-    if User.query.filter_by(username=data['username']).first():
+    db = next(get_db())
+    if db.query(User).filter_by(username=data['username']).first():
         return jsonify({'error': 'Username already exists'}), 400
     
     user = User(
@@ -21,8 +22,8 @@ def register():
         password=generate_password_hash(data['password'])
     )
     
-    db.session.add(user)
-    db.session.commit()
+    db.add(user)
+    db.commit()
     
     return jsonify({'message': 'User created successfully'}), 201
 
@@ -33,7 +34,8 @@ def login():
     if not data or not data.get('username') or not data.get('password'):
         return jsonify({'error': 'Missing required fields'}), 400
     
-    user = User.query.filter_by(username=data['username']).first()
+    db = next(get_db())
+    user = db.query(User).filter_by(username=data['username']).first()
     
     if not user or not check_password_hash(user.password, data['password']):
         return jsonify({'error': 'Invalid credentials'}), 401
@@ -45,7 +47,8 @@ def login():
 @jwt_required()
 def get_current_user():
     current_user_id = get_jwt_identity()
-    user = User.query.get(current_user_id)
+    db = next(get_db())
+    user = db.query(User).get(current_user_id)
     
     if not user:
         return jsonify({'error': 'User not found'}), 404
