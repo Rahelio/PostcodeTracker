@@ -1,7 +1,7 @@
 import os
 import logging
 import sys
-from flask import Flask, jsonify, make_response
+from flask import Flask, jsonify, make_response, request
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from datetime import timedelta
@@ -31,27 +31,29 @@ def create_app():
         "allow_headers": ["Content-Type", "Authorization"]
     }})
     
+    @app.after_request
+    def after_request(response):
+        # Force HTTP/1.1
+        response.headers['Connection'] = 'close'
+        response.headers['Content-Type'] = 'application/json'
+        response.headers['Server'] = 'PostcodeTracker/1.0'
+        return response
+    
     # Health check endpoint
     @app.route('/api/health')
     def health_check():
-        response = make_response(jsonify({
+        return jsonify({
             'status': 'healthy',
             'database': 'connected'
-        }))
-        response.headers['Content-Type'] = 'application/json'
-        response.headers['Server'] = 'PostcodeTracker/1.0'
-        return response, 200
+        }), 200
     
     # Root endpoint
     @app.route('/')
     def root():
-        response = make_response(jsonify({
+        return jsonify({
             'message': 'Welcome to PostcodeTracker API',
             'version': '1.0'
-        }))
-        response.headers['Content-Type'] = 'application/json'
-        response.headers['Server'] = 'PostcodeTracker/1.0'
-        return response, 200
+        }), 200
     
     # JWT Configuration
     app.config["JWT_SECRET_KEY"] = os.environ.get("JWT_SECRET_KEY", "dev-secret-key")
