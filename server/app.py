@@ -6,6 +6,10 @@ from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from datetime import timedelta
 from database import db
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
 
 # Configure logging
 logging.basicConfig(
@@ -28,6 +32,8 @@ def create_app():
     
     # Database Configuration
     database_url = os.environ.get("DATABASE_URL")
+    logger.debug(f"Database URL from environment: {database_url}")
+    
     if not database_url:
         database_path = os.path.join(os.path.abspath(os.path.dirname(__file__)), '..', 'postcode_distances.db')
         database_url = f"sqlite:///{database_path}"
