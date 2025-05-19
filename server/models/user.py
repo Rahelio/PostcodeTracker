@@ -1,6 +1,6 @@
-from datetime import datetime
-from database import Base
 from sqlalchemy import Column, Integer, String, DateTime
+from datetime import datetime
+from ..database import Base
 
 class User(Base):
     __tablename__ = 'users'
