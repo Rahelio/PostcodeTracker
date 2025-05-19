@@ -24,10 +24,12 @@ class AuthManager: ObservableObject {
     func login(token: String) {
         self.authToken = token
         self.isAuthenticated = true
+        APIService.shared.setAuthToken(token)
     }
     
     func logout() {
         self.authToken = nil
         self.isAuthenticated = false
+        APIService.shared.setAuthToken(nil)
     }
 } 
