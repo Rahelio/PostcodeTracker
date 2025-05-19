@@ -13,6 +13,14 @@ from export_util import export_to_csv, export_to_excel, get_journey_data
 
 logger = logging.getLogger(__name__)
 
+@app.route('/api/health', methods=['GET'])
+def health_check():
+    """Health check endpoint for monitoring."""
+    return jsonify({
+        'status': 'healthy',
+        'timestamp': datetime.utcnow().isoformat()
+    })
+
 @app.route('/')
 def index():
     """Render the main page with journey form."""
