@@ -11,6 +11,12 @@ worker_connections = 1000
 timeout = 30
 keepalive = 2
 
+# HTTP
+http_version = "1.1"
+forwarded_allow_ips = "*"
+proxy_protocol = False
+proxy_allow_ips = "*"
+
 # Logging
 accesslog = "-"  # Log to stdout
 errorlog = "-"   # Log to stderr

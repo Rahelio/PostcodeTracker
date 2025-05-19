@@ -25,15 +25,21 @@ def create_app():
     app = Flask(__name__)
     
     # Configure CORS
-    CORS(app, resources={r"/api/*": {"origins": "*"}})
+    CORS(app, resources={r"/api/*": {
+        "origins": "*",
+        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        "allow_headers": ["Content-Type", "Authorization"]
+    }})
     
     # Health check endpoint
     @app.route('/api/health')
     def health_check():
-        return jsonify({
+        response = jsonify({
             'status': 'healthy',
             'database': 'connected'
-        }), 200
+        })
+        response.headers.add('Content-Type', 'application/json')
+        return response, 200
     
     # JWT Configuration
     app.config["JWT_SECRET_KEY"] = os.environ.get("JWT_SECRET_KEY", "dev-secret-key")
@@ -52,4 +58,4 @@ def create_app():
 app = create_app()
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True) 
+    app.run(host='0.0.0.0', port=5319, debug=True) 
