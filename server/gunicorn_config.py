@@ -9,7 +9,7 @@ workers = 1  # Reduced to 1 for debugging
 worker_class = 'gevent'  # Changed to gevent for better HTTP/1.1 support
 worker_connections = 1000
 timeout = 30
-keepalive = 2
+keepalive = 65  # Increased keepalive timeout
 
 # HTTP
 http_version = "1.1"
@@ -23,6 +23,8 @@ response_headers = [
     ('X-Frame-Options', 'DENY'),
     ('X-XSS-Protection', '1; mode=block'),
     ('Content-Type', 'application/json'),
+    ('Connection', 'keep-alive'),
+    ('Keep-Alive', 'timeout=65'),
 ]
 
 # Logging
