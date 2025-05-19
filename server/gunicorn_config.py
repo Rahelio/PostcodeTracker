@@ -17,6 +17,14 @@ forwarded_allow_ips = "*"
 proxy_protocol = False
 proxy_allow_ips = "*"
 
+# Response headers
+response_headers = [
+    ('X-Content-Type-Options', 'nosniff'),
+    ('X-Frame-Options', 'DENY'),
+    ('X-XSS-Protection', '1; mode=block'),
+    ('Content-Type', 'application/json'),
+]
+
 # Logging
 accesslog = "-"  # Log to stdout
 errorlog = "-"   # Log to stderr
