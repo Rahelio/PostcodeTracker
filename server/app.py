@@ -1,7 +1,7 @@
 import os
 import logging
 import sys
-from flask import Flask
+from flask import Flask, jsonify
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from datetime import timedelta
@@ -24,6 +24,14 @@ def create_app():
     
     # Configure CORS
     CORS(app, resources={r"/api/*": {"origins": "*"}})
+    
+    # Health check endpoint
+    @app.route('/api/health')
+    def health_check():
+        return jsonify({
+            'status': 'healthy',
+            'database': 'connected' if db.engine.pool.checkedout() == 0 else 'busy'
+        }), 200
     
     # JWT Configuration
     app.config["JWT_SECRET_KEY"] = os.environ.get("JWT_SECRET_KEY", "dev-secret-key")
