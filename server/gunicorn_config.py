@@ -6,7 +6,7 @@ backlog = 2048
 
 # Worker processes
 workers = 1  # Reduced to 1 for debugging
-worker_class = 'sync'
+worker_class = 'gevent'  # Changed to gevent for better HTTP/1.1 support
 worker_connections = 1000
 timeout = 30
 keepalive = 2
