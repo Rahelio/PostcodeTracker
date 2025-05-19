@@ -1,8 +1,8 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from models.postcode import Postcode
-from database import db
-from utils.postcode_service import calculate_distance
+from server.models.postcode import Postcode
+from server.database import db
+from server.utils.postcode_service import calculate_distance
 
 postcodes_bp = Blueprint('postcodes', __name__)
 

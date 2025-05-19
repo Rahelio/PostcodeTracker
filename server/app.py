@@ -5,7 +5,7 @@ from flask import Flask
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from datetime import timedelta
-from database import db
+from server.database import db
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
@@ -48,8 +48,8 @@ def create_app():
     db.init_app(app)
     
     # Import and register blueprints
-    from api.auth import auth_bp
-    from api.postcodes import postcodes_bp
+    from server.api.auth import auth_bp
+    from server.api.postcodes import postcodes_bp
     
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(postcodes_bp, url_prefix='/api/postcodes')
