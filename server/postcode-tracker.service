@@ -12,7 +12,7 @@ Environment="DATABASE_URL=postgresql://locator:Aberdeen24@0.0.0.0:5432/postcodet
 Environment="JWT_SECRET_KEY=8bed273fc8ae7890a3d0a529527106d61c39bfe8d8151a78569de048647a62c7"
 Environment="PYTHONUNBUFFERED=1"
 Environment="FLASK_DEBUG=1"
-ExecStart=/home/rick/PostcodeTracker/venv/bin/gunicorn -c server/gunicorn_config.py server.app:app
+ExecStart=/home/rick/PostcodeTracker/venv/bin/uvicorn server.app:app --host 127.0.0.1 --port 8000 --http httptools --loop uvloop
 Restart=always
 
 [Install]
