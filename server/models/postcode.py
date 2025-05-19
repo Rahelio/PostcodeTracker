@@ -1,15 +1,15 @@
-from database import db
+from server.database import Base
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
 from datetime import datetime
 
-class Postcode(db.Model):
+class Postcode(Base):
     __tablename__ = 'postcodes'
     
-    id = db.Column(db.Integer, primary_key=True)
-    code = db.Column(db.String(10), unique=True, nullable=False)
-    latitude = db.Column(db.Float, nullable=False)
-    longitude = db.Column(db.Float, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    id = Column(Integer, primary_key=True)
+    postcode = Column(String(10), nullable=False)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     def __repr__(self):
-        return f'<Postcode {self.code}>' 
+        return f'<Postcode {self.postcode}>' 
