@@ -40,7 +40,18 @@ def create_app():
         }))
         response.headers['Content-Type'] = 'application/json'
         response.headers['Server'] = 'PostcodeTracker/1.0'
-        return response
+        return response, 200
+    
+    # Root endpoint
+    @app.route('/')
+    def root():
+        response = make_response(jsonify({
+            'message': 'Welcome to PostcodeTracker API',
+            'version': '1.0'
+        }))
+        response.headers['Content-Type'] = 'application/json'
+        response.headers['Server'] = 'PostcodeTracker/1.0'
+        return response, 200
     
     # JWT Configuration
     app.config["JWT_SECRET_KEY"] = os.environ.get("JWT_SECRET_KEY", "dev-secret-key")
