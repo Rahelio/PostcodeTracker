@@ -1,7 +1,7 @@
 import os
 import logging
 import sys
-from flask import Flask, jsonify
+from flask import Flask, jsonify, make_response
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from datetime import timedelta
@@ -34,12 +34,13 @@ def create_app():
     # Health check endpoint
     @app.route('/api/health')
     def health_check():
-        response = jsonify({
+        response = make_response(jsonify({
             'status': 'healthy',
             'database': 'connected'
-        })
-        response.headers.add('Content-Type', 'application/json')
-        return response, 200
+        }))
+        response.headers['Content-Type'] = 'application/json'
+        response.headers['Server'] = 'PostcodeTracker/1.0'
+        return response
     
     # JWT Configuration
     app.config["JWT_SECRET_KEY"] = os.environ.get("JWT_SECRET_KEY", "dev-secret-key")
