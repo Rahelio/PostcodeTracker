@@ -6,8 +6,7 @@ struct PostcodeTrackerApp: App {
     
     var body: some Scene {
         WindowGroup {
-            ContentView()
-                .environmentObject(authManager)
+            ContentView(authManager: authManager)
         }
     }
 }

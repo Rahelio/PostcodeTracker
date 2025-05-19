@@ -1,7 +1,11 @@
 import SwiftUI
 
 struct ContentView: View {
-    @EnvironmentObject var authManager: AuthManager
+    @ObservedObject var authManager: AuthManager
+    
+    init(authManager: AuthManager) {
+        self.authManager = authManager
+    }
     
     var body: some View {
         Group {
@@ -36,6 +40,5 @@ struct MainTabView: View {
 }
 
 #Preview {
-    ContentView()
-        .environmentObject(AuthManager())
+    ContentView(authManager: AuthManager())
 } 
