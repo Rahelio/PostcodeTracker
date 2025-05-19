@@ -16,7 +16,7 @@ class APIService {
     
     private init() {}
     
-    func setAuthToken(_ token: String) {
+    func setAuthToken(_ token: String?) {
         self.authToken = token
     }
     
