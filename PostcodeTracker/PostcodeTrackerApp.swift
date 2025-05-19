@@ -16,6 +16,12 @@ class AuthManager: ObservableObject {
     @Published var isAuthenticated = false
     @Published var authToken: String?
     
+    init() {
+        // Initialize with default values
+        self.isAuthenticated = false
+        self.authToken = nil
+    }
+    
     func login(token: String) {
         self.authToken = token
         self.isAuthenticated = true
