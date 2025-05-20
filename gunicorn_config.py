@@ -1,7 +1,7 @@
 import multiprocessing
 
 # Server socket
-bind = "0.0.0.0:5319"
+bind = "127.0.0.1:5319"
 backlog = 2048
 
 # Worker processes
@@ -29,4 +29,26 @@ tmp_upload_dir = None
 
 # SSL
 keyfile = None
-certfile = None 
+certfile = None
+
+# HTTP
+protocol_version = "HTTP/1.1"
+forwarded_allow_ips = '*'
+proxy_protocol = False
+proxy_allow_ips = '*'
+
+# Server hooks
+def on_starting(server):
+    server.log.info("Starting Gunicorn server with HTTP/1.1 support")
+
+def post_fork(server, worker):
+    server.log.info("Worker spawned (pid: %s)", worker.pid)
+
+def pre_fork(server, worker):
+    pass
+
+def pre_exec(server):
+    server.log.info("Forked child, re-executing.")
+
+def when_ready(server):
+    server.log.info("Server is ready. Spawning workers") 
