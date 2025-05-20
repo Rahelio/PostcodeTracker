@@ -16,13 +16,18 @@ logger = logging.getLogger(__name__)
 @app.route('/api/health', methods=['GET'])
 def health_check():
     """Health check endpoint for monitoring."""
+    logger.info(f"Health check request received from: {request.remote_addr}")
+    logger.info(f"Request headers: {dict(request.headers)}")
+    
     response = make_response(jsonify({
         'status': 'healthy',
-        'timestamp': datetime.utcnow().isoformat()
+        'timestamp': datetime.utcnow().isoformat(),
+        'client_ip': request.remote_addr
     }))
     response.headers['Content-Type'] = 'application/json'
     response.headers['Server'] = 'Flask/1.0'
     response.headers['Connection'] = 'keep-alive'
+    response.headers['Access-Control-Allow-Origin'] = '*'  # Allow CORS
     return response
 
 @app.route('/')

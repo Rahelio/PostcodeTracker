@@ -4,6 +4,7 @@ import sys
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase
+from flask_cors import CORS
 
 # Configure logging
 logging.basicConfig(
@@ -22,6 +23,7 @@ db = SQLAlchemy(model_class=Base)
 
 # Create Flask app
 app = Flask(__name__)
+CORS(app)  # Enable CORS for all routes
 app.secret_key = os.environ.get("SESSION_SECRET", "dev-secret-key")
 
 # Configure HTTP/1.1
