@@ -5,6 +5,7 @@ from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase
 from flask_cors import CORS
+from werkzeug.serving import WSGIRequestHandler
 
 # Configure logging
 logging.basicConfig(
@@ -13,6 +14,9 @@ logging.basicConfig(
     stream=sys.stdout
 )
 logger = logging.getLogger(__name__)
+
+# Configure Werkzeug to use HTTP/1.1
+WSGIRequestHandler.protocol_version = "HTTP/1.1"
 
 # Set up SQLAlchemy base class
 class Base(DeclarativeBase):

@@ -2,6 +2,7 @@ import os
 import sys
 import logging
 from dotenv import load_dotenv
+from werkzeug.serving import run_simple
 
 # Configure logging
 logging.basicConfig(
@@ -33,11 +34,12 @@ from routes import *
 
 if __name__ == "__main__":
     logger.info("Starting Flask development server on port 5319")
-    app.run(
-        host="0.0.0.0",
-        port=5319,
-        debug=True,
+    run_simple(
+        '0.0.0.0',
+        5319,
+        app,
         use_reloader=True,
-        threaded=True,
-        ssl_context=None
+        use_debugger=True,
+        use_evalex=True,
+        threaded=True
     )
