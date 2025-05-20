@@ -1,4 +1,4 @@
-from flask import render_template, request, jsonify, flash, redirect, url_for, send_file
+from flask import render_template, request, jsonify, flash, redirect, url_for, send_file, make_response
 from datetime import datetime
 import logging
 import json
@@ -16,10 +16,14 @@ logger = logging.getLogger(__name__)
 @app.route('/api/health', methods=['GET'])
 def health_check():
     """Health check endpoint for monitoring."""
-    return jsonify({
+    response = make_response(jsonify({
         'status': 'healthy',
         'timestamp': datetime.utcnow().isoformat()
-    })
+    }))
+    response.headers['Content-Type'] = 'application/json'
+    response.headers['Server'] = 'Flask/1.0'
+    response.headers['Connection'] = 'keep-alive'
+    return response
 
 @app.route('/')
 def index():

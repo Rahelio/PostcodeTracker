@@ -24,6 +24,13 @@ db = SQLAlchemy(model_class=Base)
 app = Flask(__name__)
 app.secret_key = os.environ.get("SESSION_SECRET", "dev-secret-key")
 
+# Configure HTTP/1.1
+app.config['SERVER_NAME'] = None  # Allow any hostname
+app.config['PREFERRED_URL_SCHEME'] = 'http'
+app.config['JSON_SORT_KEYS'] = False
+app.config['JSONIFY_PRETTYPRINT_REGULAR'] = False
+app.config['JSONIFY_MIMETYPE'] = 'application/json'
+
 # Configure database - handle both PostgreSQL and SQLite for local development
 database_url = os.environ.get("DATABASE_URL")
 logger.debug(f"Initial DATABASE_URL from environment: {database_url}")
