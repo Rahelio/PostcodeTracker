@@ -32,10 +32,10 @@ from app import app
 from routes import *
 
 if __name__ == "__main__":
-    logger.info("Starting Flask development server on port 5000")
+    logger.info("Starting Flask development server on port 5319")
     app.run(
         host="0.0.0.0",
-        port=5000,
+        port=5319,
         debug=True,
         use_reloader=True,
         threaded=True,
