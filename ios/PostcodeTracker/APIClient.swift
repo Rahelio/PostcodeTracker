@@ -10,7 +10,7 @@ enum APIError: Error {
 
 class APIClient {
     static let shared = APIClient()
-    private let baseURL = "http://192.168.1.76:5000/api" // Update this with your server's IP
+    private let baseURL = "http://rickys.ddns.net:5319/api" // Updated to use the new server address
     private var authToken: String?
     
     private init() {}
