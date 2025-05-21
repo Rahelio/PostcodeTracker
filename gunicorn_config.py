@@ -1,7 +1,7 @@
 import multiprocessing
 
 # Server socket
-bind = "0.0.0.0:5319"
+bind = "127.0.0.1:8000"
 backlog = 2048
 
 # Worker processes
@@ -14,7 +14,7 @@ keepalive = 2
 # Logging
 accesslog = '-'
 errorlog = '-'
-loglevel = 'info'
+loglevel = 'debug'
 
 # Process naming
 proc_name = 'postcode_tracker'
@@ -51,4 +51,11 @@ def pre_exec(server):
     server.log.info("Forked child, re-executing.")
 
 def when_ready(server):
-    server.log.info("Server is ready. Spawning workers") 
+    server.log.info("Server is ready. Spawning workers")
+
+# Additional settings
+raw_env = [
+    'PYTHONUNBUFFERED=1',
+    'FLASK_ENV=production',
+    'FLASK_APP=wsgi.py'
+] 
