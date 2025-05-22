@@ -551,28 +551,34 @@ def register():
         data = request.get_json()
         if not data:
             logger.error("No JSON data received in request")
-            return jsonify({
+            response = jsonify({
                 'success': False,
                 'error': 'No data received'
-            }), 400
+            })
+            response.headers.add('Access-Control-Allow-Origin', '*')
+            return response, 400
             
         username = data.get('username')
         password = data.get('password')
         
         if not username or not password:
             logger.error(f"Missing required fields. Username: {bool(username)}, Password: {bool(password)}")
-            return jsonify({
+            response = jsonify({
                 'success': False,
                 'error': 'Username and password are required'
-            }), 400
+            })
+            response.headers.add('Access-Control-Allow-Origin', '*')
+            return response, 400
             
         # Check if username already exists
         if User.query.filter_by(username=username).first():
             logger.error(f"Username already exists: {username}")
-            return jsonify({
+            response = jsonify({
                 'success': False,
                 'error': 'Username already exists'
-            }), 400
+            })
+            response.headers.add('Access-Control-Allow-Origin', '*')
+            return response, 400
             
         # Create new user
         user = User(
@@ -593,22 +599,26 @@ def register():
         )
         
         logger.info(f"User registered successfully: {username}")
-        return jsonify({
+        response = jsonify({
             'success': True,
             'user': {
                 'id': user.id,
                 'username': user.username
             },
             'token': token
-        }), 201
+        })
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        return response, 201
         
     except Exception as e:
         logger.error(f"Error registering user: {str(e)}")
         db.session.rollback()
-        return jsonify({
+        response = jsonify({
             'success': False,
             'error': 'Server error'
-        }), 500
+        })
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        return response, 500
 
 @app.route('/api/auth/login', methods=['POST'])
 def login():
