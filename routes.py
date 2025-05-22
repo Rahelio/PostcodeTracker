@@ -581,7 +581,7 @@ def register():
         
         logger.info(f"User registered successfully: {username}")
         return jsonify({
-            'message': 'User registered successfully'
+            'message': 'Registration successful'
         }), 201
         
     except Exception as e:
