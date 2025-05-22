@@ -544,7 +544,8 @@ def register():
         if not data:
             logger.error("No JSON data received in request")
             return jsonify({
-                'error': 1,
+                'status': 'error',
+                'code': 1,
                 'message': 'No data received'
             }), 400
             
@@ -554,7 +555,8 @@ def register():
         if not username or not password:
             logger.error(f"Missing required fields. Username: {bool(username)}, Password: {bool(password)}")
             return jsonify({
-                'error': 2,
+                'status': 'error',
+                'code': 2,
                 'message': 'Username and password are required'
             }), 400
             
@@ -562,7 +564,8 @@ def register():
         if User.query.filter_by(username=username).first():
             logger.error(f"Username already exists: {username}")
             return jsonify({
-                'error': 3,
+                'status': 'error',
+                'code': 3,
                 'message': 'Username already exists'
             }), 400
             
@@ -586,21 +589,19 @@ def register():
         
         logger.info(f"User registered successfully: {username}")
         return jsonify({
-            'error': 0,  # 0 indicates success
-            'data': {
-                'user': {
-                    'id': user.id,
-                    'username': user.username
-                },
-                'token': token
-            }
+            'status': 'success',
+            'code': 0,
+            'user_id': user.id,
+            'username': user.username,
+            'token': token
         }), 201
         
     except Exception as e:
         logger.error(f"Error registering user: {str(e)}")
         db.session.rollback()
         return jsonify({
-            'error': 4,
+            'status': 'error',
+            'code': 4,
             'message': 'Server error'
         }), 500
 
