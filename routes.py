@@ -537,21 +537,36 @@ def create_manual_journey():
 def register():
     """API endpoint for user registration."""
     try:
+        # Log the raw request data for debugging
+        logger.info(f"Registration request received: {request.get_data()}")
+        
         data = request.get_json()
+        if not data:
+            logger.error("No JSON data received in request")
+            return jsonify({
+                'success': False,
+                'message': 'No data received',
+                'error': 'missing_data'
+            }), 400
+            
         username = data.get('username')
         password = data.get('password')
         
         if not username or not password:
+            logger.error(f"Missing required fields. Username: {bool(username)}, Password: {bool(password)}")
             return jsonify({
                 'success': False,
-                'message': 'Username and password are required'
+                'message': 'Username and password are required',
+                'error': 'missing_fields'
             }), 400
             
         # Check if username already exists
         if User.query.filter_by(username=username).first():
+            logger.error(f"Username already exists: {username}")
             return jsonify({
                 'success': False,
-                'message': 'Username already exists'
+                'message': 'Username already exists',
+                'error': 'username_exists'
             }), 400
             
         # Create new user
@@ -562,17 +577,34 @@ def register():
         db.session.add(user)
         db.session.commit()
         
+        # Generate token for immediate login
+        token = jwt.encode(
+            {
+                'user_id': user.id,
+                'exp': datetime.utcnow() + app.config['JWT_EXPIRATION_DELTA']
+            },
+            app.config['SECRET_KEY'],
+            algorithm='HS256'
+        )
+        
+        logger.info(f"User registered successfully: {username}")
         return jsonify({
             'success': True,
-            'message': 'User registered successfully'
+            'message': 'User registered successfully',
+            'user': {
+                'id': user.id,
+                'username': user.username
+            },
+            'access_token': token
         }), 201
         
     except Exception as e:
-        logger.error(f"Error registering user: {e}")
+        logger.error(f"Error registering user: {str(e)}")
         db.session.rollback()
         return jsonify({
             'success': False,
-            'message': f'Server error: {str(e)}'
+            'message': f'Server error: {str(e)}',
+            'error': 'server_error'
         }), 500
 
 @app.route('/api/auth/login', methods=['POST'])
