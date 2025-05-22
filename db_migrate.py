@@ -3,89 +3,31 @@ import sys
 from sqlalchemy import text
 from app import app, db
 from models import Journey, SavedLocation
+import logging
 
 """
 Simple database migration script to handle the addition of new columns to the Journey table
 and create the SavedLocation table.
 """
 
+logger = logging.getLogger(__name__)
+
 def run_migration():
-    print("Starting database migration...")
-    
-    with app.app_context():
-        engine = db.engine
-        inspector = db.inspect(engine)
+    """Run database migrations for PostgreSQL."""
+    try:
+        # Drop the user table if it exists
+        db.session.execute('DROP TABLE IF EXISTS "user" CASCADE')
+        db.session.commit()
+        logger.info("Dropped existing user table")
         
-        # Check if the journey table exists
-        if 'journey' not in inspector.get_table_names():
-            print("Error: Journey table doesn't exist. Running create_all...")
-            db.create_all()
-            print("Database tables created.")
-            return
+        # Create all tables
+        db.create_all()
+        logger.info("Created all tables with updated schema")
         
-        # Check if we need to add the is_manual column
-        journey_columns = [col['name'] for col in inspector.get_columns('journey')]
-        cols_to_add = []
-        
-        if 'is_manual' not in journey_columns:
-            cols_to_add.append("ALTER TABLE journey ADD COLUMN is_manual BOOLEAN DEFAULT FALSE")
-        
-        if 'start_location_id' not in journey_columns:
-            cols_to_add.append("ALTER TABLE journey ADD COLUMN start_location_id INTEGER")
-        
-        if 'end_location_id' not in journey_columns:
-            cols_to_add.append("ALTER TABLE journey ADD COLUMN end_location_id INTEGER")
-        
-        # Create the saved_location table if it doesn't exist
-        if 'saved_location' not in inspector.get_table_names():
-            print("Creating saved_location table...")
-            # Use create_all to create all missing tables
-            db.create_all()
-            print("Missing tables created.")
-        
-        # Add the columns to journey table
-        if cols_to_add:
-            print(f"Adding new columns to journey table: {cols_to_add}")
-            try:
-                with engine.begin() as conn:
-                    for query in cols_to_add:
-                        print(f"Running: {query}")
-                        conn.execute(text(query))
-            except Exception as e:
-                print(f"Error during column addition: {e}")
-                sys.exit(1)
-            
-            print("Successfully added new columns.")
-        else:
-            print("No schema changes needed.")
-        
-        # Add foreign key constraints if they don't exist
-        if 'start_location_id' in journey_columns and 'end_location_id' in journey_columns:
-            try:
-                # Check if foreign keys already exist
-                constraints = inspector.get_foreign_keys('journey')
-                constraint_columns = [c['constrained_columns'] for c in constraints]
-                
-                if ['start_location_id'] not in constraint_columns:
-                    print("Adding foreign key for start_location_id...")
-                    with engine.begin() as conn:
-                        conn.execute(text(
-                            "ALTER TABLE journey ADD CONSTRAINT fk_journey_start_location "
-                            "FOREIGN KEY (start_location_id) REFERENCES saved_location (id)"
-                        ))
-                
-                if ['end_location_id'] not in constraint_columns:
-                    print("Adding foreign key for end_location_id...")
-                    with engine.begin() as conn:
-                        conn.execute(text(
-                            "ALTER TABLE journey ADD CONSTRAINT fk_journey_end_location "
-                            "FOREIGN KEY (end_location_id) REFERENCES saved_location (id)"
-                        ))
-            except Exception as e:
-                print(f"Error adding foreign key constraints: {e}")
-                print("Continuing without foreign keys...")
-        
-        print("Migration completed successfully.")
+    except Exception as e:
+        logger.error(f"Error during migration: {e}")
+        db.session.rollback()
+        raise
 
 if __name__ == "__main__":
     run_migration()
