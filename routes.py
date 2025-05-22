@@ -537,16 +537,23 @@ def create_manual_journey():
 def register():
     """API endpoint for user registration."""
     try:
-        # Log the raw request data for debugging
-        logger.info(f"Registration request received: {request.get_data()}")
+        # Log detailed request information
+        logger.info("=== Registration Request Details ===")
+        logger.info(f"Request Method: {request.method}")
+        logger.info(f"Request Headers: {dict(request.headers)}")
+        logger.info(f"Request Content Type: {request.content_type}")
+        logger.info(f"Request Data: {request.get_data()}")
+        logger.info(f"Request JSON: {request.get_json(silent=True)}")
+        logger.info(f"Request Form: {request.form}")
+        logger.info(f"Request Args: {request.args}")
+        logger.info("=================================")
         
         data = request.get_json()
         if not data:
             logger.error("No JSON data received in request")
             return jsonify({
-                'status': 'error',
-                'code': 1,
-                'message': 'No data received'
+                'success': False,
+                'error': 'No data received'
             }), 400
             
         username = data.get('username')
@@ -555,18 +562,16 @@ def register():
         if not username or not password:
             logger.error(f"Missing required fields. Username: {bool(username)}, Password: {bool(password)}")
             return jsonify({
-                'status': 'error',
-                'code': 2,
-                'message': 'Username and password are required'
+                'success': False,
+                'error': 'Username and password are required'
             }), 400
             
         # Check if username already exists
         if User.query.filter_by(username=username).first():
             logger.error(f"Username already exists: {username}")
             return jsonify({
-                'status': 'error',
-                'code': 3,
-                'message': 'Username already exists'
+                'success': False,
+                'error': 'Username already exists'
             }), 400
             
         # Create new user
@@ -589,10 +594,11 @@ def register():
         
         logger.info(f"User registered successfully: {username}")
         return jsonify({
-            'status': 'success',
-            'code': 0,
-            'user_id': user.id,
-            'username': user.username,
+            'success': True,
+            'user': {
+                'id': user.id,
+                'username': user.username
+            },
             'token': token
         }), 201
         
@@ -600,9 +606,8 @@ def register():
         logger.error(f"Error registering user: {str(e)}")
         db.session.rollback()
         return jsonify({
-            'status': 'error',
-            'code': 4,
-            'message': 'Server error'
+            'success': False,
+            'error': 'Server error'
         }), 500
 
 @app.route('/api/auth/login', methods=['POST'])
