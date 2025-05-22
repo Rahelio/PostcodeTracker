@@ -15,27 +15,27 @@ logger = logging.getLogger(__name__)
 def run_migration():
     """Run database migrations for PostgreSQL."""
     try:
-        with app.app_context():
-            # First, check if the user table exists
-            result = db.session.execute(text("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'user')"))
-            table_exists = result.scalar()
-            
-            if table_exists:
-                # If table exists, alter the column
-                logger.info("Altering password_hash column in user table")
-                db.session.execute(text("ALTER TABLE \"user\" ALTER COLUMN password_hash TYPE VARCHAR(256)"))
-            else:
-                # If table doesn't exist, create all tables
-                logger.info("Creating all tables")
-                db.create_all()
-            
+        # First, check if the user table exists
+        result = db.session.execute(text("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'user')"))
+        table_exists = result.scalar()
+        
+        if table_exists:
+            # If table exists, drop it and recreate
+            logger.info("Dropping existing user table")
+            db.session.execute(text('DROP TABLE IF EXISTS "user" CASCADE'))
             db.session.commit()
-            logger.info("Migration completed successfully")
-            
+        
+        # Create all tables
+        logger.info("Creating all tables")
+        db.create_all()
+        db.session.commit()
+        logger.info("Migration completed successfully")
+        
     except Exception as e:
         logger.error(f"Error during migration: {e}")
         db.session.rollback()
         raise
 
 if __name__ == "__main__":
-    run_migration()
+    with app.app_context():
+        run_migration()
