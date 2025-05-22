@@ -544,9 +544,8 @@ def register():
         if not data:
             logger.error("No JSON data received in request")
             return jsonify({
-                'success': False,
-                'message': 'No data received',
-                'error': 'missing_data'
+                'error': 1,
+                'message': 'No data received'
             }), 400
             
         username = data.get('username')
@@ -555,18 +554,16 @@ def register():
         if not username or not password:
             logger.error(f"Missing required fields. Username: {bool(username)}, Password: {bool(password)}")
             return jsonify({
-                'success': False,
-                'message': 'Username and password are required',
-                'error': 'missing_fields'
+                'error': 2,
+                'message': 'Username and password are required'
             }), 400
             
         # Check if username already exists
         if User.query.filter_by(username=username).first():
             logger.error(f"Username already exists: {username}")
             return jsonify({
-                'success': False,
-                'message': 'Username already exists',
-                'error': 'username_exists'
+                'error': 3,
+                'message': 'Username already exists'
             }), 400
             
         # Create new user
@@ -589,22 +586,22 @@ def register():
         
         logger.info(f"User registered successfully: {username}")
         return jsonify({
-            'success': True,
-            'message': 'User registered successfully',
-            'user': {
-                'id': user.id,
-                'username': user.username
-            },
-            'access_token': token
+            'error': 0,  # 0 indicates success
+            'data': {
+                'user': {
+                    'id': user.id,
+                    'username': user.username
+                },
+                'token': token
+            }
         }), 201
         
     except Exception as e:
         logger.error(f"Error registering user: {str(e)}")
         db.session.rollback()
         return jsonify({
-            'success': False,
-            'message': f'Server error: {str(e)}',
-            'error': 'server_error'
+            'error': 4,
+            'message': 'Server error'
         }), 500
 
 @app.route('/api/auth/login', methods=['POST'])
