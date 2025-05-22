@@ -51,9 +51,10 @@ for path in env_paths:
         except Exception as e:
             print(f"Error reading {path}: {str(e)}")
 
-from app import app
+from app import app, db
 from db_migrate import run_migration
 from sqlite_migrate import run_sqlite_migration
+from models import User, Journey, SavedLocation
 
 """
 Unified migration script that chooses the appropriate migration strategy
@@ -76,5 +77,15 @@ def run_appropriate_migration():
     
     print("Migration complete. You can now restart your application.")
 
+def init_db():
+    """Initialize the database with all required tables."""
+    try:
+        # Create all tables
+        db.create_all()
+        print("Database tables created successfully")
+    except Exception as e:
+        print(f"Error creating database tables: {e}")
+
 if __name__ == "__main__":
     run_appropriate_migration()
+    init_db()

@@ -1,5 +1,5 @@
 from flask import render_template, request, jsonify, flash, redirect, url_for, send_file, make_response
-from datetime import datetime
+from datetime import datetime, timedelta
 import logging
 import json
 import io
@@ -7,11 +7,17 @@ import pandas as pd
 import tempfile
 import csv
 from app import app, db
-from models import Journey, SavedLocation
+from models import Journey, SavedLocation, User
 from postcode_service import PostcodeService
 from export_util import export_to_csv, export_to_excel, get_journey_data
+from werkzeug.security import generate_password_hash, check_password_hash
+import jwt
 
 logger = logging.getLogger(__name__)
+
+# Add JWT configuration
+app.config['SECRET_KEY'] = 'your-secret-key'  # Change this to a secure secret key
+app.config['JWT_EXPIRATION_DELTA'] = timedelta(days=1)
 
 @app.route('/api/health', methods=['GET'])
 def health_check():
@@ -526,3 +532,89 @@ def create_manual_journey():
         logger.error(f"Error creating manual journey: {e}")
         db.session.rollback()
         return jsonify({'success': False, 'message': f'Server error: {str(e)}'}), 500
+
+@app.route('/api/auth/register', methods=['POST'])
+def register():
+    """API endpoint for user registration."""
+    try:
+        data = request.get_json()
+        username = data.get('username')
+        password = data.get('password')
+        
+        if not username or not password:
+            return jsonify({
+                'success': False,
+                'message': 'Username and password are required'
+            }), 400
+            
+        # Check if username already exists
+        if User.query.filter_by(username=username).first():
+            return jsonify({
+                'success': False,
+                'message': 'Username already exists'
+            }), 400
+            
+        # Create new user
+        user = User(
+            username=username,
+            password_hash=generate_password_hash(password)
+        )
+        db.session.add(user)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'User registered successfully'
+        }), 201
+        
+    except Exception as e:
+        logger.error(f"Error registering user: {e}")
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'message': f'Server error: {str(e)}'
+        }), 500
+
+@app.route('/api/auth/login', methods=['POST'])
+def login():
+    """API endpoint for user login."""
+    try:
+        data = request.get_json()
+        username = data.get('username')
+        password = data.get('password')
+        
+        if not username or not password:
+            return jsonify({
+                'success': False,
+                'message': 'Username and password are required'
+            }), 400
+            
+        # Find user
+        user = User.query.filter_by(username=username).first()
+        if not user or not check_password_hash(user.password_hash, password):
+            return jsonify({
+                'success': False,
+                'message': 'Invalid username or password'
+            }), 401
+            
+        # Generate JWT token
+        token = jwt.encode(
+            {
+                'user_id': user.id,
+                'exp': datetime.utcnow() + app.config['JWT_EXPIRATION_DELTA']
+            },
+            app.config['SECRET_KEY'],
+            algorithm='HS256'
+        )
+        
+        return jsonify({
+            'success': True,
+            'access_token': token
+        })
+        
+    except Exception as e:
+        logger.error(f"Error logging in: {e}")
+        return jsonify({
+            'success': False,
+            'message': f'Server error: {str(e)}'
+        }), 500

@@ -65,3 +65,12 @@ class Journey(db.Model):
             'start_location': self.start_location.to_dict() if self.start_location else None,
             'end_location': self.end_location.to_dict() if self.end_location else None
         }
+
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    password_hash = db.Column(db.String(128))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    def __repr__(self):
+        return f'<User {self.username}>'
