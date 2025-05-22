@@ -552,7 +552,6 @@ def register():
         if not data:
             logger.error("No JSON data received in request")
             response = jsonify({
-                'success': False,
                 'error': 'No data received'
             })
             response.headers.add('Access-Control-Allow-Origin', '*')
@@ -564,7 +563,6 @@ def register():
         if not username or not password:
             logger.error(f"Missing required fields. Username: {bool(username)}, Password: {bool(password)}")
             response = jsonify({
-                'success': False,
                 'error': 'Username and password are required'
             })
             response.headers.add('Access-Control-Allow-Origin', '*')
@@ -574,7 +572,6 @@ def register():
         if User.query.filter_by(username=username).first():
             logger.error(f"Username already exists: {username}")
             response = jsonify({
-                'success': False,
                 'error': 'Username already exists'
             })
             response.headers.add('Access-Control-Allow-Origin', '*')
@@ -600,12 +597,7 @@ def register():
         
         logger.info(f"User registered successfully: {username}")
         response = jsonify({
-            'success': True,
-            'user': {
-                'id': user.id,
-                'username': user.username
-            },
-            'token': token
+            'message': 'User registered successfully'
         })
         response.headers.add('Access-Control-Allow-Origin', '*')
         return response, 201
@@ -614,7 +606,6 @@ def register():
         logger.error(f"Error registering user: {str(e)}")
         db.session.rollback()
         response = jsonify({
-            'success': False,
             'error': 'Server error'
         })
         response.headers.add('Access-Control-Allow-Origin', '*')
