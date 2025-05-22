@@ -551,25 +551,31 @@ def register():
         data = request.get_json()
         if not data:
             logger.error("No JSON data received in request")
-            return jsonify({
+            response = jsonify({
                 'error': 'No data received'
-            }), 400
+            })
+            logger.info(f"Registration Response: {response.get_data(as_text=True)}")
+            return response, 400
             
         username = data.get('username')
         password = data.get('password')
         
         if not username or not password:
             logger.error(f"Missing required fields. Username: {bool(username)}, Password: {bool(password)}")
-            return jsonify({
+            response = jsonify({
                 'error': 'Username and password are required'
-            }), 400
+            })
+            logger.info(f"Registration Response: {response.get_data(as_text=True)}")
+            return response, 400
             
         # Check if username already exists
         if User.query.filter_by(username=username).first():
             logger.error(f"Username already exists: {username}")
-            return jsonify({
+            response = jsonify({
                 'error': 'Username already exists'
-            }), 400
+            })
+            logger.info(f"Registration Response: {response.get_data(as_text=True)}")
+            return response, 400
             
         # Create new user
         user = User(
@@ -580,36 +586,55 @@ def register():
         db.session.commit()
         
         logger.info(f"User registered successfully: {username}")
-        return jsonify({
+        response = jsonify({
             'message': 'Registration successful'
-        }), 201
+        })
+        logger.info(f"Registration Response: {response.get_data(as_text=True)}")
+        return response, 201
         
     except Exception as e:
         logger.error(f"Error registering user: {str(e)}")
         db.session.rollback()
-        return jsonify({
+        response = jsonify({
             'error': 'Server error'
-        }), 500
+        })
+        logger.info(f"Registration Response: {response.get_data(as_text=True)}")
+        return response, 500
 
 @app.route('/api/auth/login', methods=['POST'])
 def login():
     """API endpoint for user login."""
     try:
+        # Log detailed request information
+        logger.info("=== Login Request Details ===")
+        logger.info(f"Request Method: {request.method}")
+        logger.info(f"Request Headers: {dict(request.headers)}")
+        logger.info(f"Request Content Type: {request.content_type}")
+        logger.info(f"Request Data: {request.get_data()}")
+        logger.info(f"Request JSON: {request.get_json(silent=True)}")
+        logger.info(f"Request Form: {request.form}")
+        logger.info(f"Request Args: {request.args}")
+        logger.info("=================================")
+        
         data = request.get_json()
         username = data.get('username')
         password = data.get('password')
         
         if not username or not password:
-            return jsonify({
+            response = jsonify({
                 'error': 'Username and password are required'
-            }), 400
+            })
+            logger.info(f"Login Response: {response.get_data(as_text=True)}")
+            return response, 400
             
         # Find user
         user = User.query.filter_by(username=username).first()
         if not user or not check_password_hash(user.password_hash, password):
-            return jsonify({
+            response = jsonify({
                 'error': 'Invalid username or password'
-            }), 401
+            })
+            logger.info(f"Login Response: {response.get_data(as_text=True)}")
+            return response, 401
             
         # Generate JWT token
         token = jwt.encode(
@@ -621,15 +646,19 @@ def login():
             algorithm='HS256'
         )
         
-        return jsonify({
+        response = jsonify({
             'access_token': token
         })
+        logger.info(f"Login Response: {response.get_data(as_text=True)}")
+        return response
         
     except Exception as e:
         logger.error(f"Error logging in: {e}")
-        return jsonify({
+        response = jsonify({
             'error': 'Server error'
-        }), 500
+        })
+        logger.info(f"Login Response: {response.get_data(as_text=True)}")
+        return response, 500
 
 # Postcode management endpoints
 @app.route('/api/postcodes', methods=['GET'])

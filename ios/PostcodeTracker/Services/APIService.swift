@@ -7,6 +7,23 @@ enum APIError: Error {
     case decodingError(Error)
     case serverError(String)
     case unauthorized
+    
+    var localizedDescription: String {
+        switch self {
+        case .invalidURL:
+            return "Invalid URL"
+        case .networkError(let error):
+            return "Network error: \(error.localizedDescription)"
+        case .invalidResponse:
+            return "Invalid response from server"
+        case .decodingError(let error):
+            return "Failed to decode response: \(error.localizedDescription)"
+        case .serverError(let message):
+            return message
+        case .unauthorized:
+            return "Unauthorized"
+        }
+    }
 }
 
 class APIService {
@@ -39,18 +56,36 @@ class APIService {
         let body = ["username": username, "password": password]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         
+        print("Registration Request URL: \(request.url?.absoluteString ?? "")")
+        print("Registration Request Headers: \(request.allHTTPHeaderFields ?? [:])")
+        print("Registration Request Body: \(String(data: request.httpBody ?? Data(), encoding: .utf8) ?? "")")
+        
         let (data, response) = try await URLSession.shared.data(for: request)
+        
+        print("Registration Response Data: \(String(data: data, encoding: .utf8) ?? "")")
         
         guard let httpResponse = response as? HTTPURLResponse else {
             throw APIError.invalidResponse
         }
         
+        print("Registration Response Status: \(httpResponse.statusCode)")
+        
         if httpResponse.statusCode == 201 {
-            let result = try JSONDecoder().decode(RegisterResponse.self, from: data)
-            return result.message
+            do {
+                let result = try JSONDecoder().decode(RegisterResponse.self, from: data)
+                return result.message
+            } catch {
+                print("Registration Decoding Error: \(error)")
+                throw APIError.decodingError(error)
+            }
         } else {
-            let error = try JSONDecoder().decode(ErrorResponse.self, from: data)
-            throw APIError.serverError(error.error)
+            do {
+                let error = try JSONDecoder().decode(ErrorResponse.self, from: data)
+                throw APIError.serverError(error.error)
+            } catch {
+                print("Registration Error Decoding Error: \(error)")
+                throw APIError.decodingError(error)
+            }
         }
     }
     
@@ -60,18 +95,36 @@ class APIService {
         let body = ["username": username, "password": password]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         
+        print("Login Request URL: \(request.url?.absoluteString ?? "")")
+        print("Login Request Headers: \(request.allHTTPHeaderFields ?? [:])")
+        print("Login Request Body: \(String(data: request.httpBody ?? Data(), encoding: .utf8) ?? "")")
+        
         let (data, response) = try await URLSession.shared.data(for: request)
+        
+        print("Login Response Data: \(String(data: data, encoding: .utf8) ?? "")")
         
         guard let httpResponse = response as? HTTPURLResponse else {
             throw APIError.invalidResponse
         }
         
+        print("Login Response Status: \(httpResponse.statusCode)")
+        
         if httpResponse.statusCode == 200 {
-            let result = try JSONDecoder().decode(LoginResponse.self, from: data)
-            return result.access_token
+            do {
+                let result = try JSONDecoder().decode(LoginResponse.self, from: data)
+                return result.access_token
+            } catch {
+                print("Login Decoding Error: \(error)")
+                throw APIError.decodingError(error)
+            }
         } else {
-            let error = try JSONDecoder().decode(ErrorResponse.self, from: data)
-            throw APIError.serverError(error.error)
+            do {
+                let error = try JSONDecoder().decode(ErrorResponse.self, from: data)
+                throw APIError.serverError(error.error)
+            } catch {
+                print("Login Error Decoding Error: \(error)")
+                throw APIError.decodingError(error)
+            }
         }
     }
     
