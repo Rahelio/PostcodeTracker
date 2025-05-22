@@ -2,7 +2,7 @@ import os
 import sys
 from sqlalchemy import text
 from app import app, db
-from models import Journey, SavedLocation
+from models import Journey, SavedLocation, User
 import logging
 
 """
@@ -15,15 +15,23 @@ logger = logging.getLogger(__name__)
 def run_migration():
     """Run database migrations for PostgreSQL."""
     try:
-        # Drop the user table if it exists
-        db.session.execute('DROP TABLE IF EXISTS "user" CASCADE')
-        db.session.commit()
-        logger.info("Dropped existing user table")
-        
-        # Create all tables
-        db.create_all()
-        logger.info("Created all tables with updated schema")
-        
+        with app.app_context():
+            # First, check if the user table exists
+            result = db.session.execute(text("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'user')"))
+            table_exists = result.scalar()
+            
+            if table_exists:
+                # If table exists, alter the column
+                logger.info("Altering password_hash column in user table")
+                db.session.execute(text("ALTER TABLE \"user\" ALTER COLUMN password_hash TYPE VARCHAR(256)"))
+            else:
+                # If table doesn't exist, create all tables
+                logger.info("Creating all tables")
+                db.create_all()
+            
+            db.session.commit()
+            logger.info("Migration completed successfully")
+            
     except Exception as e:
         logger.error(f"Error during migration: {e}")
         db.session.rollback()
