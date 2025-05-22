@@ -551,31 +551,25 @@ def register():
         data = request.get_json()
         if not data:
             logger.error("No JSON data received in request")
-            response = jsonify({
+            return jsonify({
                 'error': 'No data received'
-            })
-            response.headers.add('Access-Control-Allow-Origin', '*')
-            return response, 400
+            }), 400
             
         username = data.get('username')
         password = data.get('password')
         
         if not username or not password:
             logger.error(f"Missing required fields. Username: {bool(username)}, Password: {bool(password)}")
-            response = jsonify({
+            return jsonify({
                 'error': 'Username and password are required'
-            })
-            response.headers.add('Access-Control-Allow-Origin', '*')
-            return response, 400
+            }), 400
             
         # Check if username already exists
         if User.query.filter_by(username=username).first():
             logger.error(f"Username already exists: {username}")
-            response = jsonify({
+            return jsonify({
                 'error': 'Username already exists'
-            })
-            response.headers.add('Access-Control-Allow-Origin', '*')
-            return response, 400
+            }), 400
             
         # Create new user
         user = User(
@@ -585,31 +579,17 @@ def register():
         db.session.add(user)
         db.session.commit()
         
-        # Generate token for immediate login
-        token = jwt.encode(
-            {
-                'user_id': user.id,
-                'exp': datetime.utcnow() + app.config['JWT_EXPIRATION_DELTA']
-            },
-            app.config['SECRET_KEY'],
-            algorithm='HS256'
-        )
-        
         logger.info(f"User registered successfully: {username}")
-        response = jsonify({
+        return jsonify({
             'message': 'User registered successfully'
-        })
-        response.headers.add('Access-Control-Allow-Origin', '*')
-        return response, 201
+        }), 201
         
     except Exception as e:
         logger.error(f"Error registering user: {str(e)}")
         db.session.rollback()
-        response = jsonify({
+        return jsonify({
             'error': 'Server error'
-        })
-        response.headers.add('Access-Control-Allow-Origin', '*')
-        return response, 500
+        }), 500
 
 @app.route('/api/auth/login', methods=['POST'])
 def login():
@@ -621,16 +601,14 @@ def login():
         
         if not username or not password:
             return jsonify({
-                'success': False,
-                'message': 'Username and password are required'
+                'error': 'Username and password are required'
             }), 400
             
         # Find user
         user = User.query.filter_by(username=username).first()
         if not user or not check_password_hash(user.password_hash, password):
             return jsonify({
-                'success': False,
-                'message': 'Invalid username or password'
+                'error': 'Invalid username or password'
             }), 401
             
         # Generate JWT token
@@ -644,13 +622,11 @@ def login():
         )
         
         return jsonify({
-            'success': True,
             'access_token': token
         })
         
     except Exception as e:
         logger.error(f"Error logging in: {e}")
         return jsonify({
-            'success': False,
-            'message': f'Server error: {str(e)}'
+            'error': 'Server error'
         }), 500
