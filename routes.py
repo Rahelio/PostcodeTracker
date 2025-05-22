@@ -630,3 +630,114 @@ def login():
         return jsonify({
             'error': 'Server error'
         }), 500
+
+# Postcode management endpoints
+@app.route('/api/postcodes', methods=['GET'])
+def get_postcodes():
+    """API endpoint to get all postcodes for the authenticated user."""
+    try:
+        # Get user ID from JWT token
+        auth_header = request.headers.get('Authorization')
+        if not auth_header or not auth_header.startswith('Bearer '):
+            return jsonify({'error': 'Missing or invalid authorization header'}), 401
+            
+        token = auth_header.split(' ')[1]
+        try:
+            payload = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
+            user_id = payload['user_id']
+        except jwt.InvalidTokenError:
+            return jsonify({'error': 'Invalid token'}), 401
+            
+        # Get postcodes for user
+        postcodes = SavedLocation.query.filter_by(user_id=user_id).all()
+        return jsonify([{
+            'id': location.id,
+            'postcode': location.postcode,
+            'user_id': location.user_id,
+            'created_at': location.created_at.isoformat(),
+            'updated_at': location.updated_at.isoformat()
+        } for location in postcodes])
+        
+    except Exception as e:
+        logger.error(f"Error fetching postcodes: {e}")
+        return jsonify({'error': 'Server error'}), 500
+
+@app.route('/api/postcodes', methods=['POST'])
+def add_postcode():
+    """API endpoint to add a new postcode for the authenticated user."""
+    try:
+        # Get user ID from JWT token
+        auth_header = request.headers.get('Authorization')
+        if not auth_header or not auth_header.startswith('Bearer '):
+            return jsonify({'error': 'Missing or invalid authorization header'}), 401
+            
+        token = auth_header.split(' ')[1]
+        try:
+            payload = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
+            user_id = payload['user_id']
+        except jwt.InvalidTokenError:
+            return jsonify({'error': 'Invalid token'}), 401
+            
+        # Get postcode from request
+        data = request.get_json()
+        if not data or 'postcode' not in data:
+            return jsonify({'error': 'Postcode is required'}), 400
+            
+        postcode = data['postcode'].strip().upper().replace(" ", "")
+        
+        # Validate postcode
+        if not PostcodeService.validate_postcode(postcode):
+            return jsonify({'error': 'Invalid UK postcode format'}), 400
+            
+        # Create new location
+        location = SavedLocation(
+            name=postcode,  # Using postcode as name for now
+            postcode=postcode,
+            user_id=user_id
+        )
+        db.session.add(location)
+        db.session.commit()
+        
+        return jsonify({
+            'id': location.id,
+            'postcode': location.postcode,
+            'user_id': location.user_id,
+            'created_at': location.created_at.isoformat(),
+            'updated_at': location.updated_at.isoformat()
+        }), 201
+        
+    except Exception as e:
+        logger.error(f"Error adding postcode: {e}")
+        db.session.rollback()
+        return jsonify({'error': 'Server error'}), 500
+
+@app.route('/api/postcodes/<int:postcode_id>', methods=['DELETE'])
+def delete_postcode(postcode_id):
+    """API endpoint to delete a postcode."""
+    try:
+        # Get user ID from JWT token
+        auth_header = request.headers.get('Authorization')
+        if not auth_header or not auth_header.startswith('Bearer '):
+            return jsonify({'error': 'Missing or invalid authorization header'}), 401
+            
+        token = auth_header.split(' ')[1]
+        try:
+            payload = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
+            user_id = payload['user_id']
+        except jwt.InvalidTokenError:
+            return jsonify({'error': 'Invalid token'}), 401
+            
+        # Find and delete location
+        location = SavedLocation.query.filter_by(id=postcode_id, user_id=user_id).first()
+        if not location:
+            return jsonify({'error': 'Postcode not found'}), 404
+            
+        db.session.delete(location)
+        db.session.commit()
+        
+        return '', 204
+        
+    except Exception as e:
+        logger.error(f"Error deleting postcode: {e}")
+        db.session.rollback()
+        return jsonify({'error': 'Server error'}), 500
