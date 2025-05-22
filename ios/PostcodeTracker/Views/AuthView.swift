@@ -102,3 +102,4 @@ struct AuthView: View {
     AuthView()
         .environmentObject(AuthManager())
 } 
+}
