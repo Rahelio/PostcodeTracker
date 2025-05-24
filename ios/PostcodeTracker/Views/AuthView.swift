@@ -66,33 +66,24 @@ struct AuthView: View {
                     let token = try await APIService.shared.login(username: username, password: password)
                     await MainActor.run {
                         authManager.login(token: token)
+                        isLoading = false
                     }
                 } else {
-                    let message = try await APIService.shared.register(username: username, password: password)
+                    // First register
+                    _ = try await APIService.shared.register(username: username, password: password)
+                    
+                    // Then login
+                    let token = try await APIService.shared.login(username: username, password: password)
                     await MainActor.run {
-                        // After successful registration, automatically log in
-                        Task {
-                            do {
-                                let token = try await APIService.shared.login(username: username, password: password)
-                                await MainActor.run {
-                                    authManager.login(token: token)
-                                }
-                            } catch {
-                                await MainActor.run {
-                                    errorMessage = error.localizedDescription
-                                }
-                            }
-                        }
+                        authManager.login(token: token)
+                        isLoading = false
                     }
                 }
             } catch {
                 await MainActor.run {
                     errorMessage = error.localizedDescription
+                    isLoading = false
                 }
-            }
-            
-            await MainActor.run {
-                isLoading = false
             }
         }
     }
