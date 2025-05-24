@@ -253,6 +253,59 @@ class APIService {
             }
         }
     }
+    
+    func getPostcodeFromCoordinates(latitude: Double, longitude: Double) async throws -> Postcode? {
+        let request = try createRequest(path: "/postcode/from-coordinates", method: "POST")
+        
+        let body = ["latitude": latitude, "longitude": longitude]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        
+        let (data, response) = try await URLSession.shared.data(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw APIError.invalidResponse
+        }
+        
+        if httpResponse.statusCode == 200 {
+            let result = try JSONDecoder().decode(PostcodeResponse.self, from: data)
+            return result.postcode
+        } else {
+            let error = try JSONDecoder().decode(ErrorResponse.self, from: data)
+            throw APIError.serverError(error.error)
+        }
+    }
+    
+    func createJourney(startPostcode: String, endPostcode: String) async throws -> Journey {
+        let request = try createRequest(path: "/journey/start", method: "POST")
+        
+        let body = ["start_postcode": startPostcode]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        
+        // Start the journey
+        let (startData, startResponse) = try await URLSession.shared.data(for: request)
+        
+        guard let startHttpResponse = startResponse as? HTTPURLResponse,
+              startHttpResponse.statusCode == 200 else {
+            let error = try JSONDecoder().decode(ErrorResponse.self, from: startData)
+            throw APIError.serverError(error.error)
+        }
+        
+        // End the journey
+        var endRequest = try createRequest(path: "/journey/end", method: "POST")
+        let endBody = ["end_postcode": endPostcode]
+        endRequest.httpBody = try JSONSerialization.data(withJSONObject: endBody)
+        
+        let (endData, endResponse) = try await URLSession.shared.data(for: endRequest)
+        
+        guard let endHttpResponse = endResponse as? HTTPURLResponse,
+              endHttpResponse.statusCode == 200 else {
+            let error = try JSONDecoder().decode(ErrorResponse.self, from: endData)
+            throw APIError.serverError(error.error)
+        }
+        
+        let journeyResponse = try JSONDecoder().decode(JourneyResponse.self, from: endData)
+        return journeyResponse.journey
+    }
 }
 
 // MARK: - Response Models
@@ -276,4 +329,24 @@ struct Postcode: Codable, Identifiable {
     let latitude: Double?
     let longitude: Double?
     let created_at: String
+}
+
+struct Journey: Codable {
+    let id: Int
+    let start_postcode: String
+    let end_postcode: String
+    let start_time: String
+    let end_time: String
+    let distance_miles: Double
+}
+
+struct PostcodeResponse: Codable {
+    let success: Bool
+    let postcode: Postcode?
+}
+
+struct JourneyResponse: Codable {
+    let success: Bool
+    let message: String
+    let journey: Journey
 } 
