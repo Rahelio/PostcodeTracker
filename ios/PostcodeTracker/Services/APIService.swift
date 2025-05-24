@@ -174,7 +174,7 @@ class APIService {
     }
     
     func addPostcode(_ postcode: String) async throws -> Postcode {
-        let request = try createRequest(path: "/postcodes", method: "POST")
+        var request = try createRequest(path: "/postcodes", method: "POST")
         
         let body = ["postcode": postcode]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)

@@ -82,10 +82,13 @@ with app.app_context():
     try:
         # Import models here to avoid circular imports
         import models
-        # Create all database tables
+        # Create all database tables if they don't exist
         db.create_all()
-        logger.debug("Database tables created successfully")
+        logger.debug("Database tables checked/created successfully")
     except Exception as e:
         logger.error(f"Error initializing database: {str(e)}")
-        logger.error("Please check your database configuration and ensure PostgreSQL is running")
-        raise
+        if "already exists" in str(e):
+            logger.warning("Tables already exist, continuing...")
+        else:
+            logger.error("Please check your database configuration and ensure PostgreSQL is running")
+            raise
