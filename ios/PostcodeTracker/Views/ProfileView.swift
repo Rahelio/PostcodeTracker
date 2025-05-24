@@ -22,5 +22,5 @@ struct ProfileView: View {
 
 #Preview {
     ProfileView()
-        .environmentObject(AuthManager())
+        .environmentObject(AuthManager.shared)
 } 
