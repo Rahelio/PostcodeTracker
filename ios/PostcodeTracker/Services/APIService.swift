@@ -205,17 +205,25 @@ class APIService {
         }
     }
     
-    func addPostcode(_ postcode: String) async throws -> Postcode {
+    func addPostcode(_ postcode: String, name: String) async throws -> Postcode {
         var request = try createRequest(path: "/postcodes", method: "POST")
         
-        let body = ["postcode": postcode]
+        let body = ["postcode": postcode, "name": name]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         
+        print("Add Postcode Request URL: \(request.url?.absoluteString ?? "")")
+        print("Add Postcode Request Headers: \(request.allHTTPHeaderFields ?? [:])")
+        print("Add Postcode Request Body: \(String(data: request.httpBody ?? Data(), encoding: .utf8) ?? "")")
+        
         let (data, response) = try await URLSession.shared.data(for: request)
+        
+        print("Add Postcode Response Data: \(String(data: data, encoding: .utf8) ?? "")")
         
         guard let httpResponse = response as? HTTPURLResponse else {
             throw APIError.invalidResponse
         }
+        
+        print("Add Postcode Response Status: \(httpResponse.statusCode)")
         
         if httpResponse.statusCode == 201 {
             return try JSONDecoder().decode(Postcode.self, from: data)
@@ -263,8 +271,7 @@ struct ErrorResponse: Codable {
 
 struct Postcode: Codable, Identifiable {
     let id: Int
+    let name: String
     let postcode: String
-    let user_id: Int
     let created_at: String
-    let updated_at: String
 } 

@@ -6,6 +6,7 @@ struct PostcodeListView: View {
     @State private var errorMessage: String?
     @State private var showingAddPostcode = false
     @State private var newPostcode = ""
+    @State private var newName = ""
     
     var body: some View {
         NavigationView {
@@ -16,8 +17,11 @@ struct PostcodeListView: View {
                     List {
                         ForEach(postcodes) { postcode in
                             VStack(alignment: .leading) {
-                                Text(postcode.postcode)
+                                Text(postcode.name)
                                     .font(.headline)
+                                Text(postcode.postcode)
+                                    .font(.subheadline)
+                                    .foregroundColor(.gray)
                                 Text("Added: \(formatDate(postcode.created_at))")
                                     .font(.caption)
                                     .foregroundColor(.gray)
@@ -36,10 +40,12 @@ struct PostcodeListView: View {
                 }
             }
             .alert("Add Postcode", isPresented: $showingAddPostcode) {
+                TextField("Enter name", text: $newName)
                 TextField("Enter postcode", text: $newPostcode)
                     .autocapitalization(.allCharacters)
                 Button("Cancel", role: .cancel) {
                     newPostcode = ""
+                    newName = ""
                 }
                 Button("Add") {
                     Task {
@@ -82,9 +88,10 @@ struct PostcodeListView: View {
         errorMessage = nil
         
         do {
-            let postcode = try await APIService.shared.addPostcode(newPostcode)
+            let postcode = try await APIService.shared.addPostcode(newPostcode, name: newName.isEmpty ? newPostcode : newName)
             postcodes.append(postcode)
             newPostcode = ""
+            newName = ""
             showingAddPostcode = false
         } catch {
             errorMessage = error.localizedDescription
