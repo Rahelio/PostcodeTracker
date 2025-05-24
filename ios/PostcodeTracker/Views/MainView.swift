@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct ContentView: View {
+struct MainView: View {
     @StateObject private var authManager = AuthManager.shared
     
     var body: some View {
@@ -28,5 +28,5 @@ struct ContentView: View {
 }
 
 #Preview {
-    ContentView()
+    MainView()
 } 

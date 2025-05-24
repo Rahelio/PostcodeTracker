@@ -2,12 +2,9 @@ import SwiftUI
 
 @main
 struct PostcodeTrackerApp: App {
-    @StateObject private var authManager = AuthManager()
-    
     var body: some Scene {
         WindowGroup {
-            ContentView(authManager: authManager)
-                .environmentObject(authManager)
+            MainView()
         }
     }
 }
