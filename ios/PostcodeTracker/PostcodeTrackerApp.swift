@@ -20,6 +20,7 @@ class AuthManager: ObservableObject {
         print("AuthManager: Setting token and updating authentication state")
         self.token = token
         self.isAuthenticated = true
+        APIService.shared.setAuthToken(token)
         print("AuthManager: isAuthenticated is now \(isAuthenticated)")
     }
     
@@ -27,6 +28,7 @@ class AuthManager: ObservableObject {
         print("AuthManager: Logging out")
         self.token = nil
         self.isAuthenticated = false
+        APIService.shared.setAuthToken(nil)
         print("AuthManager: isAuthenticated is now \(isAuthenticated)")
     }
 } 
