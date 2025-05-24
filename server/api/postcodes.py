@@ -67,10 +67,9 @@ def calculate_postcode_distance():
     if not data or not all(k in data for k in ['postcode1', 'postcode2']):
         return jsonify({'error': 'Missing required fields'}), 400
     
-    current_user_id = get_jwt_identity()
     db = next(get_db())
-    postcode1 = db.query(Postcode).filter_by(postcode=data['postcode1'], user_id=current_user_id).first()
-    postcode2 = db.query(Postcode).filter_by(postcode=data['postcode2'], user_id=current_user_id).first()
+    postcode1 = db.query(Postcode).filter_by(postcode=data['postcode1']).first()
+    postcode2 = db.query(Postcode).filter_by(postcode=data['postcode2']).first()
     
     if not postcode1 or not postcode2:
         return jsonify({'error': 'One or both postcodes not found'}), 404
