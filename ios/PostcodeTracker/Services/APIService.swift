@@ -273,5 +273,7 @@ struct Postcode: Codable, Identifiable {
     let id: Int
     let name: String
     let postcode: String
+    let latitude: Double?
+    let longitude: Double?
     let created_at: String
 } 

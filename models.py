@@ -2,27 +2,33 @@ from datetime import datetime
 from app import db
 from typing import Dict, Any, Optional
 
-class SavedLocation(db.Model):
+class Postcode(db.Model):
     """Model for storing saved locations with names and UK postcodes."""
+    __tablename__ = 'saved_location'
+    
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     postcode = db.Column(db.String(10), nullable=False)
+    latitude = db.Column(db.Float)
+    longitude = db.Column(db.Float)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     def __init__(self, **kwargs):
-        """Initialize a SavedLocation instance with keyword arguments."""
-        super(SavedLocation, self).__init__(**kwargs)
+        """Initialize a Postcode instance with keyword arguments."""
+        super(Postcode, self).__init__(**kwargs)
         
     def __repr__(self) -> str:
-        """String representation of a SavedLocation instance."""
-        return f"<SavedLocation {self.id}: {self.name} ({self.postcode})>"
+        """String representation of a Postcode instance."""
+        return f"<Postcode {self.id}: {self.name} ({self.postcode})>"
         
     def to_dict(self) -> Dict[str, Any]:
-        """Convert saved location to a dictionary for JSON serialization."""
+        """Convert postcode to a dictionary for JSON serialization."""
         return {
             'id': self.id,
             'name': self.name,
             'postcode': self.postcode,
+            'latitude': self.latitude,
+            'longitude': self.longitude,
             'created_at': self.created_at.strftime('%Y-%m-%d %H:%M:%S') if self.created_at else None
         }
 
@@ -41,8 +47,8 @@ class Journey(db.Model):
     end_location_id = db.Column(db.Integer, db.ForeignKey('saved_location.id'), nullable=True)
     
     # Relationships
-    start_location = db.relationship('SavedLocation', foreign_keys=[start_location_id])
-    end_location = db.relationship('SavedLocation', foreign_keys=[end_location_id])
+    start_location = db.relationship('Postcode', foreign_keys=[start_location_id])
+    end_location = db.relationship('Postcode', foreign_keys=[end_location_id])
     
     def __init__(self, **kwargs):
         """Initialize a Journey instance with keyword arguments."""

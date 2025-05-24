@@ -682,6 +682,8 @@ def get_postcodes():
             'id': p.id,
             'name': p.name,
             'postcode': p.postcode,
+            'latitude': p.latitude,
+            'longitude': p.longitude,
             'created_at': p.created_at.isoformat() if p.created_at else None
         } for p in postcodes]), 200
         
@@ -732,6 +734,8 @@ def add_postcode():
             'id': postcode.id,
             'name': postcode.name,
             'postcode': postcode.postcode,
+            'latitude': postcode.latitude,
+            'longitude': postcode.longitude,
             'created_at': postcode.created_at.isoformat() if postcode.created_at else None
         }), 201
         

@@ -157,3 +157,28 @@ class PostcodeService:
         c = 2 * math.asin(math.sqrt(a))
         r = 6371  # Radius of earth in kilometers
         return c * r
+
+    @staticmethod
+    def get_postcode_details(postcode: str) -> Optional[Dict[str, Any]]:
+        """
+        Gets location data for a postcode.
+        
+        Args:
+            postcode: The postcode to look up
+            
+        Returns:
+            Optional[Dict]: Dictionary containing postcode data or None if not found
+        """
+        try:
+            response = requests.get(f"{PostcodeService.BASE_URL}/postcodes/{postcode}")
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('status') == 200 and data.get('result'):
+                    return {
+                        'latitude': data['result']['latitude'],
+                        'longitude': data['result']['longitude']
+                    }
+            return None
+        except Exception as e:
+            logger.error(f"Error getting postcode details: {e}")
+            return None
