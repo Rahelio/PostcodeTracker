@@ -9,44 +9,44 @@ postcodes_bp = Blueprint('postcodes', __name__)
 @postcodes_bp.route('/', methods=['GET'])
 @jwt_required()
 def get_postcodes():
-    current_user_id = get_jwt_identity()
     db = next(get_db())
-    postcodes = db.query(Postcode).filter_by(user_id=current_user_id).all()
+    postcodes = db.query(Postcode).all()
     return jsonify([{
         'id': p.id,
+        'name': p.name,
         'postcode': p.postcode,
-        'created_at': p.created_at.isoformat(),
-        'updated_at': p.updated_at.isoformat()
+        'created_at': p.created_at.isoformat() if p.created_at else None
     } for p in postcodes]), 200
 
 @postcodes_bp.route('/<int:postcode_id>', methods=['GET'])
 @jwt_required()
 def get_postcode(postcode_id):
-    current_user_id = get_jwt_identity()
     db = next(get_db())
-    postcode = db.query(Postcode).filter_by(id=postcode_id, user_id=current_user_id).first()
+    postcode = db.query(Postcode).filter_by(id=postcode_id).first()
     if not postcode:
         return jsonify({'error': 'Postcode not found'}), 404
     return jsonify({
         'id': postcode.id,
+        'name': postcode.name,
         'postcode': postcode.postcode,
-        'created_at': postcode.created_at.isoformat(),
-        'updated_at': postcode.updated_at.isoformat()
+        'created_at': postcode.created_at.isoformat() if postcode.created_at else None
     }), 200
 
 @postcodes_bp.route('/', methods=['POST'])
 @jwt_required()
 def create_postcode():
-    current_user_id = get_jwt_identity()
     data = request.get_json()
     
     if not data or not data.get('postcode'):
         return jsonify({'error': 'Postcode is required'}), 400
     
+    if not data.get('name'):
+        data['name'] = data['postcode']  # Use postcode as name if not provided
+    
     db = next(get_db())
     postcode = Postcode(
         postcode=data['postcode'],
-        user_id=current_user_id
+        name=data['name']
     )
     
     db.add(postcode)
@@ -54,9 +54,9 @@ def create_postcode():
     
     return jsonify({
         'id': postcode.id,
+        'name': postcode.name,
         'postcode': postcode.postcode,
-        'created_at': postcode.created_at.isoformat(),
-        'updated_at': postcode.updated_at.isoformat()
+        'created_at': postcode.created_at.isoformat() if postcode.created_at else None
     }), 201
 
 @postcodes_bp.route('/distance', methods=['POST'])
@@ -88,10 +88,9 @@ def calculate_postcode_distance():
 @postcodes_bp.route('/<int:postcode_id>', methods=['DELETE'])
 @jwt_required()
 def delete_postcode(postcode_id):
-    current_user_id = get_jwt_identity()
     db = next(get_db())
     
-    postcode = db.query(Postcode).filter_by(id=postcode_id, user_id=current_user_id).first()
+    postcode = db.query(Postcode).filter_by(id=postcode_id).first()
     if not postcode:
         return jsonify({'error': 'Postcode not found'}), 404
     

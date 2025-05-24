@@ -1,15 +1,14 @@
 from server.database import Base
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, DateTime
 from datetime import datetime
 
 class Postcode(Base):
-    __tablename__ = 'postcodes'
+    __tablename__ = 'saved_location'
     
     id = Column(Integer, primary_key=True)
+    name = Column(String(100), nullable=False)
     postcode = Column(String(10), nullable=False)
-    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     def __repr__(self):
         return f'<Postcode {self.postcode}>' 
