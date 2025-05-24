@@ -255,7 +255,7 @@ class APIService {
     }
     
     func getPostcodeFromCoordinates(latitude: Double, longitude: Double) async throws -> Postcode? {
-        let request = try createRequest(path: "/postcode/from-coordinates", method: "POST")
+        var request = try createRequest(path: "/postcode/from-coordinates", method: "POST")
         
         let body = ["latitude": latitude, "longitude": longitude]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
@@ -276,7 +276,7 @@ class APIService {
     }
     
     func createJourney(startPostcode: String, endPostcode: String) async throws -> Journey {
-        let request = try createRequest(path: "/journey/start", method: "POST")
+        var request = try createRequest(path: "/journey/start", method: "POST")
         
         let body = ["start_postcode": startPostcode]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)

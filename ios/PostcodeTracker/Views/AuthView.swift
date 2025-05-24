@@ -103,5 +103,5 @@ struct AuthView: View {
 
 #Preview {
     AuthView()
-        .environmentObject(AuthManager())
+        .environmentObject(AuthManager.shared)
 } 
