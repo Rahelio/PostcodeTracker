@@ -7,7 +7,7 @@ import pandas as pd
 import tempfile
 import csv
 from app import app, db
-from models import Journey, SavedLocation, User
+from models import Journey, Postcode, User
 from postcode_service import PostcodeService
 from export_util import export_to_csv, export_to_excel, get_journey_data
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -335,14 +335,14 @@ def export_journeys(format_type):
 @app.route('/locations')
 def locations():
     """Render the saved locations page."""
-    locations = SavedLocation.query.order_by(SavedLocation.name).all()
+    locations = Postcode.query.order_by(Postcode.name).all()
     return render_template('locations.html', locations=locations)
 
 @app.route('/api/locations', methods=['GET'])
 def get_locations():
     """API endpoint to get all saved locations."""
     try:
-        locations = SavedLocation.query.order_by(SavedLocation.name).all()
+        locations = Postcode.query.order_by(Postcode.name).all()
         return jsonify({
             'success': True,
             'locations': [location.to_dict() for location in locations]
@@ -371,12 +371,12 @@ def add_location():
             return jsonify({'success': False, 'message': 'Invalid UK postcode format'}), 400
             
         # Check if location with same name already exists
-        existing = SavedLocation.query.filter_by(name=name).first()
+        existing = Postcode.query.filter_by(name=name).first()
         if existing:
             return jsonify({'success': False, 'message': f'A location named "{name}" already exists'}), 400
             
         # Create new location
-        location = SavedLocation(name=name, postcode=postcode)
+        location = Postcode(name=name, postcode=postcode)
         db.session.add(location)
         db.session.commit()
         
@@ -395,7 +395,7 @@ def add_location():
 def update_location(location_id):
     """API endpoint to update a saved location."""
     try:
-        location = SavedLocation.query.get(location_id)
+        location = Postcode.query.get(location_id)
         if not location:
             return jsonify({'success': False, 'message': 'Location not found'}), 404
             
@@ -415,7 +415,7 @@ def update_location(location_id):
             return jsonify({'success': False, 'message': 'Invalid UK postcode format'}), 400
             
         # Check if another location with the same name exists
-        existing = SavedLocation.query.filter(SavedLocation.name == name, SavedLocation.id != location_id).first()
+        existing = Postcode.query.filter(Postcode.name == name, Postcode.id != location_id).first()
         if existing:
             return jsonify({'success': False, 'message': f'A different location named "{name}" already exists'}), 400
             
@@ -439,7 +439,7 @@ def update_location(location_id):
 def delete_location(location_id):
     """API endpoint to delete a saved location."""
     try:
-        location = SavedLocation.query.get(location_id)
+        location = Postcode.query.get(location_id)
         if not location:
             return jsonify({'success': False, 'message': 'Location not found'}), 404
             
@@ -471,7 +471,7 @@ def delete_location(location_id):
 @app.route('/manual-journey')
 def manual_journey():
     """Render the manual journey page."""
-    locations = SavedLocation.query.order_by(SavedLocation.name).all()
+    locations = Postcode.query.order_by(Postcode.name).all()
     return render_template('manual_journey.html', locations=locations)
 
 @app.route('/api/journey/manual', methods=['POST'])
@@ -490,8 +490,8 @@ def create_manual_journey():
             return jsonify({'success': False, 'message': 'End location is required'}), 400
             
         # Get locations
-        start_location = SavedLocation.query.get(start_location_id)
-        end_location = SavedLocation.query.get(end_location_id)
+        start_location = Postcode.query.get(start_location_id)
+        end_location = Postcode.query.get(end_location_id)
         
         if not start_location:
             return jsonify({'success': False, 'message': 'Start location not found'}), 404
@@ -663,29 +663,27 @@ def login():
 # Postcode management endpoints
 @app.route('/api/postcodes', methods=['GET'])
 def get_postcodes():
-    """API endpoint to get all postcodes for the authenticated user."""
+    """API endpoint to get all saved postcodes."""
     try:
-        # Get user ID from JWT token
+        # Get the JWT token from the Authorization header
         auth_header = request.headers.get('Authorization')
         if not auth_header or not auth_header.startswith('Bearer '):
-            return jsonify({'error': 'Missing or invalid authorization header'}), 401
+            return jsonify({'error': 'Missing or invalid authorization token'}), 401
             
         token = auth_header.split(' ')[1]
         try:
             payload = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
-            user_id = payload['user_id']
         except jwt.InvalidTokenError:
             return jsonify({'error': 'Invalid token'}), 401
             
-        # Get postcodes for user
-        postcodes = SavedLocation.query.filter_by(user_id=user_id).all()
+        # Get all postcodes
+        postcodes = Postcode.query.all()
         return jsonify([{
-            'id': location.id,
-            'postcode': location.postcode,
-            'user_id': location.user_id,
-            'created_at': location.created_at.isoformat(),
-            'updated_at': location.updated_at.isoformat()
-        } for location in postcodes])
+            'id': p.id,
+            'name': p.name,
+            'postcode': p.postcode,
+            'created_at': p.created_at.isoformat() if p.created_at else None
+        } for p in postcodes]), 200
         
     except Exception as e:
         logger.error(f"Error fetching postcodes: {e}")
@@ -693,46 +691,48 @@ def get_postcodes():
 
 @app.route('/api/postcodes', methods=['POST'])
 def add_postcode():
-    """API endpoint to add a new postcode for the authenticated user."""
+    """API endpoint to add a new postcode."""
     try:
-        # Get user ID from JWT token
+        # Get the JWT token from the Authorization header
         auth_header = request.headers.get('Authorization')
         if not auth_header or not auth_header.startswith('Bearer '):
-            return jsonify({'error': 'Missing or invalid authorization header'}), 401
+            return jsonify({'error': 'Missing or invalid authorization token'}), 401
             
         token = auth_header.split(' ')[1]
         try:
             payload = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
-            user_id = payload['user_id']
         except jwt.InvalidTokenError:
             return jsonify({'error': 'Invalid token'}), 401
             
-        # Get postcode from request
         data = request.get_json()
-        if not data or 'postcode' not in data:
+        if not data or not data.get('postcode'):
             return jsonify({'error': 'Postcode is required'}), 400
             
-        postcode = data['postcode'].strip().upper().replace(" ", "")
-        
         # Validate postcode
-        if not PostcodeService.validate_postcode(postcode):
+        if not PostcodeService.validate_postcode(data['postcode']):
             return jsonify({'error': 'Invalid UK postcode format'}), 400
             
-        # Create new location
-        location = SavedLocation(
-            name=postcode,  # Using postcode as name for now
-            postcode=postcode,
-            user_id=user_id
+        # Get postcode details
+        postcode_data = PostcodeService.get_postcode_details(data['postcode'])
+        if not postcode_data:
+            return jsonify({'error': 'Could not validate postcode'}), 400
+            
+        # Create new postcode
+        postcode = Postcode(
+            postcode=data['postcode'],
+            name=data.get('name', data['postcode']),
+            latitude=postcode_data['latitude'],
+            longitude=postcode_data['longitude']
         )
-        db.session.add(location)
+        
+        db.session.add(postcode)
         db.session.commit()
         
         return jsonify({
-            'id': location.id,
-            'postcode': location.postcode,
-            'user_id': location.user_id,
-            'created_at': location.created_at.isoformat(),
-            'updated_at': location.updated_at.isoformat()
+            'id': postcode.id,
+            'name': postcode.name,
+            'postcode': postcode.postcode,
+            'created_at': postcode.created_at.isoformat() if postcode.created_at else None
         }), 201
         
     except Exception as e:
@@ -744,27 +744,26 @@ def add_postcode():
 def delete_postcode(postcode_id):
     """API endpoint to delete a postcode."""
     try:
-        # Get user ID from JWT token
+        # Get the JWT token from the Authorization header
         auth_header = request.headers.get('Authorization')
         if not auth_header or not auth_header.startswith('Bearer '):
-            return jsonify({'error': 'Missing or invalid authorization header'}), 401
+            return jsonify({'error': 'Missing or invalid authorization token'}), 401
             
         token = auth_header.split(' ')[1]
         try:
             payload = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
-            user_id = payload['user_id']
         except jwt.InvalidTokenError:
             return jsonify({'error': 'Invalid token'}), 401
             
-        # Find and delete location
-        location = SavedLocation.query.filter_by(id=postcode_id, user_id=user_id).first()
-        if not location:
+        # Find and delete the postcode
+        postcode = Postcode.query.get(postcode_id)
+        if not postcode:
             return jsonify({'error': 'Postcode not found'}), 404
             
-        db.session.delete(location)
+        db.session.delete(postcode)
         db.session.commit()
         
-        return '', 204
+        return jsonify({'message': 'Postcode deleted successfully'}), 200
         
     except Exception as e:
         logger.error(f"Error deleting postcode: {e}")
