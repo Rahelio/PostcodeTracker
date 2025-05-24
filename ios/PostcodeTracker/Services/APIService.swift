@@ -11,7 +11,7 @@ enum APIError: Error {
     var localizedDescription: String {
         switch self {
         case .invalidURL:
-            return "Invalid URL"
+            return "Invalid URL - Please check your server configuration"
         case .networkError(let error):
             return "Network error: \(error.localizedDescription)"
         case .invalidResponse:
@@ -37,14 +37,17 @@ class APIService {
         self.authToken = token
     }
     
-    private func createRequest(path: String, method: String) -> URLRequest {
+    private func createRequest(path: String, method: String) throws -> URLRequest {
         let urlString = "\(baseURL)\(path)"
-        print("Creating request for URL: \(urlString)")
+        print("Attempting to create URL from string: \(urlString)")
         
-        guard let url = URL(string: urlString) else {
-            print("Failed to create URL from string: \(urlString)")
-            fatalError("Invalid URL: \(urlString)")
+        guard let encodedString = urlString.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+              let url = URL(string: encodedString) else {
+            print("Failed to create valid URL from string: \(urlString)")
+            throw APIError.invalidURL
         }
+        
+        print("Successfully created URL: \(url.absoluteString)")
         
         var request = URLRequest(url: url)
         request.httpMethod = method
@@ -61,7 +64,7 @@ class APIService {
     
     func register(username: String, password: String) async throws -> String {
         do {
-            var request = createRequest(path: "/auth/register", method: "POST")
+            var request = try createRequest(path: "/auth/register", method: "POST")
             
             let body = ["username": username, "password": password]
             request.httpBody = try JSONSerialization.data(withJSONObject: body)
@@ -105,48 +108,54 @@ class APIService {
     }
     
     func login(username: String, password: String) async throws -> String {
-        var request = createRequest(path: "/auth/login", method: "POST")
-        
-        let body = ["username": username, "password": password]
-        request.httpBody = try JSONSerialization.data(withJSONObject: body)
-        
-        print("Login Request URL: \(request.url?.absoluteString ?? "")")
-        print("Login Request Headers: \(request.allHTTPHeaderFields ?? [:])")
-        print("Login Request Body: \(String(data: request.httpBody ?? Data(), encoding: .utf8) ?? "")")
-        
-        let (data, response) = try await URLSession.shared.data(for: request)
-        
-        print("Login Response Data: \(String(data: data, encoding: .utf8) ?? "")")
-        
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw APIError.invalidResponse
-        }
-        
-        print("Login Response Status: \(httpResponse.statusCode)")
-        
-        if httpResponse.statusCode == 200 {
-            do {
-                let result = try JSONDecoder().decode(LoginResponse.self, from: data)
-                return result.access_token
-            } catch {
-                print("Login Decoding Error: \(error)")
-                throw APIError.decodingError(error)
+        do {
+            var request = try createRequest(path: "/auth/login", method: "POST")
+            
+            let body = ["username": username, "password": password]
+            request.httpBody = try JSONSerialization.data(withJSONObject: body)
+            
+            print("Login Request URL: \(request.url?.absoluteString ?? "")")
+            print("Login Request Headers: \(request.allHTTPHeaderFields ?? [:])")
+            print("Login Request Body: \(String(data: request.httpBody ?? Data(), encoding: .utf8) ?? "")")
+            
+            let (data, response) = try await URLSession.shared.data(for: request)
+            
+            print("Login Response Data: \(String(data: data, encoding: .utf8) ?? "")")
+            
+            guard let httpResponse = response as? HTTPURLResponse else {
+                print("Invalid response type")
+                throw APIError.invalidResponse
             }
-        } else {
-            do {
-                let error = try JSONDecoder().decode(ErrorResponse.self, from: data)
-                throw APIError.serverError(error.error)
-            } catch {
-                print("Login Error Decoding Error: \(error)")
-                throw APIError.decodingError(error)
+            
+            print("Login Response Status: \(httpResponse.statusCode)")
+            
+            if httpResponse.statusCode == 200 {
+                do {
+                    let result = try JSONDecoder().decode(LoginResponse.self, from: data)
+                    return result.access_token
+                } catch {
+                    print("Login Decoding Error: \(error)")
+                    throw APIError.decodingError(error)
+                }
+            } else {
+                do {
+                    let error = try JSONDecoder().decode(ErrorResponse.self, from: data)
+                    throw APIError.serverError(error.error)
+                } catch {
+                    print("Login Error Decoding Error: \(error)")
+                    throw APIError.decodingError(error)
+                }
             }
+        } catch {
+            print("Login Error: \(error)")
+            throw error
         }
     }
     
     // MARK: - Postcodes
     
     func getPostcodes() async throws -> [Postcode] {
-        let request = createRequest(path: "/postcodes", method: "GET")
+        let request = try createRequest(path: "/postcodes", method: "GET")
         
         let (data, response) = try await URLSession.shared.data(for: request)
         
@@ -165,7 +174,7 @@ class APIService {
     }
     
     func addPostcode(_ postcode: String) async throws -> Postcode {
-        var request = createRequest(path: "/postcodes", method: "POST")
+        let request = try createRequest(path: "/postcodes", method: "POST")
         
         let body = ["postcode": postcode]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
@@ -187,7 +196,7 @@ class APIService {
     }
     
     func deletePostcode(id: Int) async throws {
-        let request = createRequest(path: "/postcodes/\(id)", method: "DELETE")
+        let request = try createRequest(path: "/postcodes/\(id)", method: "DELETE")
         
         let (data, response) = try await URLSession.shared.data(for: request)
         
