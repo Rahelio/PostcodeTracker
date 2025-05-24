@@ -54,6 +54,9 @@ struct AuthView: View {
             }
             .padding()
         }
+        .onAppear {
+            print("AuthView appeared, isAuthenticated: \(authManager.isAuthenticated)")
+        }
     }
     
     private func performAction() {
@@ -63,23 +66,32 @@ struct AuthView: View {
         Task {
             do {
                 if isLogin {
+                    print("Attempting login...")
                     let token = try await APIService.shared.login(username: username, password: password)
+                    print("Login successful, token received")
                     await MainActor.run {
                         authManager.login(token: token)
+                        print("AuthManager updated, isAuthenticated: \(authManager.isAuthenticated)")
                         isLoading = false
                     }
                 } else {
+                    print("Attempting registration...")
                     // First register
                     _ = try await APIService.shared.register(username: username, password: password)
+                    print("Registration successful")
                     
                     // Then login
+                    print("Attempting login after registration...")
                     let token = try await APIService.shared.login(username: username, password: password)
+                    print("Login successful after registration, token received")
                     await MainActor.run {
                         authManager.login(token: token)
+                        print("AuthManager updated after registration, isAuthenticated: \(authManager.isAuthenticated)")
                         isLoading = false
                     }
                 }
             } catch {
+                print("Error occurred: \(error.localizedDescription)")
                 await MainActor.run {
                     errorMessage = error.localizedDescription
                     isLoading = false
