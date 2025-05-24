@@ -155,21 +155,53 @@ class APIService {
     // MARK: - Postcodes
     
     func getPostcodes() async throws -> [Postcode] {
+        print("APIService: Attempting to fetch postcodes")
         let request = try createRequest(path: "/postcodes", method: "GET")
         
-        let (data, response) = try await URLSession.shared.data(for: request)
+        print("APIService: Request URL: \(request.url?.absoluteString ?? "nil")")
+        print("APIService: Request Headers: \(request.allHTTPHeaderFields ?? [:])")
         
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw APIError.invalidResponse
-        }
-        
-        if httpResponse.statusCode == 200 {
-            return try JSONDecoder().decode([Postcode].self, from: data)
-        } else if httpResponse.statusCode == 401 {
-            throw APIError.unauthorized
-        } else {
-            let error = try JSONDecoder().decode(ErrorResponse.self, from: data)
-            throw APIError.serverError(error.error)
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            
+            print("APIService: Response received")
+            print("APIService: Response Data: \(String(data: data, encoding: .utf8) ?? "")")
+            
+            guard let httpResponse = response as? HTTPURLResponse else {
+                print("APIService: Invalid response type")
+                throw APIError.invalidResponse
+            }
+            
+            print("APIService: Response Status Code: \(httpResponse.statusCode)")
+            
+            if httpResponse.statusCode == 200 {
+                do {
+                    let postcodes = try JSONDecoder().decode([Postcode].self, from: data)
+                    print("APIService: Successfully decoded \(postcodes.count) postcodes")
+                    return postcodes
+                } catch {
+                    print("APIService: Decoding error: \(error)")
+                    throw APIError.decodingError(error)
+                }
+            } else if httpResponse.statusCode == 401 {
+                print("APIService: Unauthorized error")
+                throw APIError.unauthorized
+            } else {
+                do {
+                    let error = try JSONDecoder().decode(ErrorResponse.self, from: data)
+                    print("APIService: Server error: \(error.error)")
+                    throw APIError.serverError(error.error)
+                } catch {
+                    print("APIService: Error decoding error response: \(error)")
+                    throw APIError.serverError("Unknown server error")
+                }
+            }
+        } catch let error as APIError {
+            print("APIService: API Error: \(error.localizedDescription)")
+            throw error
+        } catch {
+            print("APIService: Network Error: \(error.localizedDescription)")
+            throw APIError.networkError(error)
         }
     }
     
