@@ -10,8 +10,12 @@ struct PostcodeTrackerApp: App {
 }
 
 class AuthManager: ObservableObject {
+    static let shared = AuthManager()
+    
     @Published var isAuthenticated = false
     @Published var token: String?
+    
+    private init() {} // Make initializer private for singleton pattern
     
     func login(token: String) {
         print("AuthManager: Setting token and updating authentication state")
