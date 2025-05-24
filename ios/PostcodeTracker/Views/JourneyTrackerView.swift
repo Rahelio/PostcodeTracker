@@ -12,79 +12,118 @@ struct JourneyTrackerView: View {
     @State private var locationManager = CLLocationManager()
     
     var body: some View {
-        VStack(spacing: 20) {
-            // Status Card
-            VStack(spacing: 10) {
-                Text(isRecording ? "Journey in Progress" : "Ready to Start")
-                    .font(.title2)
-                    .fontWeight(.bold)
-                    .foregroundColor(isRecording ? .red : .green)
-                
-                if let start = startPostcode {
-                    Text("Start: \(start.postcode)")
-                        .font(.headline)
+        NavigationView {
+            VStack(spacing: 20) {
+                // Status Card
+                VStack(spacing: 10) {
+                    Text(isRecording ? "Journey in Progress" : "Ready to Start")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .foregroundColor(isRecording ? .red : .green)
+                    
+                    if let start = startPostcode {
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text("Start Location")
+                                .font(.headline)
+                            Text(start.name)
+                                .font(.subheadline)
+                            Text(start.postcode)
+                                .font(.caption)
+                                .foregroundColor(.gray)
+                            if let lat = start.latitude, let lon = start.longitude {
+                                Text("Coordinates: \(String(format: "%.4f, %.4f", lat, lon))")
+                                    .font(.caption)
+                                    .foregroundColor(.gray)
+                            }
+                        }
+                        .padding()
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color(.systemGray6))
+                        .cornerRadius(10)
+                    }
+                    
+                    if let end = endPostcode {
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text("End Location")
+                                .font(.headline)
+                            Text(end.name)
+                                .font(.subheadline)
+                            Text(end.postcode)
+                                .font(.caption)
+                                .foregroundColor(.gray)
+                            if let lat = end.latitude, let lon = end.longitude {
+                                Text("Coordinates: \(String(format: "%.4f, %.4f", lat, lon))")
+                                    .font(.caption)
+                                    .foregroundColor(.gray)
+                            }
+                        }
+                        .padding()
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color(.systemGray6))
+                        .cornerRadius(10)
+                    }
+                    
+                    if let distance = distance {
+                        Text(String(format: "Distance: %.1f miles", distance))
+                            .font(.headline)
+                            .padding()
+                            .frame(maxWidth: .infinity)
+                            .background(Color(.systemGray6))
+                            .cornerRadius(10)
+                    }
                 }
+                .padding()
+                .frame(maxWidth: .infinity)
+                .background(Color(.systemBackground))
+                .cornerRadius(15)
+                .shadow(radius: 5)
                 
-                if let end = endPostcode {
-                    Text("End: \(end.postcode)")
-                        .font(.headline)
+                // Action Buttons
+                VStack(spacing: 15) {
+                    if !isRecording {
+                        Button(action: startJourney) {
+                            HStack {
+                                Image(systemName: "play.fill")
+                                Text("Start Journey")
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.green)
+                            .foregroundColor(.white)
+                            .cornerRadius(10)
+                        }
+                    } else {
+                        Button(action: endJourney) {
+                            HStack {
+                                Image(systemName: "stop.fill")
+                                Text("End Journey")
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.red)
+                            .foregroundColor(.white)
+                            .cornerRadius(10)
+                        }
+                    }
                 }
+                .padding(.horizontal)
                 
-                if let distance = distance {
-                    Text(String(format: "Distance: %.1f miles", distance))
-                        .font(.headline)
+                if isLoading {
+                    ProgressView()
+                        .scaleEffect(1.5)
+                        .padding()
                 }
             }
             .padding()
-            .frame(maxWidth: .infinity)
-            .background(Color(.systemBackground))
-            .cornerRadius(15)
-            .shadow(radius: 5)
-            
-            // Action Buttons
-            VStack(spacing: 15) {
-                if !isRecording {
-                    Button(action: startJourney) {
-                        HStack {
-                            Image(systemName: "play.fill")
-                            Text("Start Journey")
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color.green)
-                        .foregroundColor(.white)
-                        .cornerRadius(10)
-                    }
-                } else {
-                    Button(action: endJourney) {
-                        HStack {
-                            Image(systemName: "stop.fill")
-                            Text("End Journey")
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color.red)
-                        .foregroundColor(.white)
-                        .cornerRadius(10)
-                    }
-                }
+            .navigationTitle("Track Journey")
+            .alert("Journey Update", isPresented: $showingAlert) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text(alertMessage)
             }
-            .padding(.horizontal)
-            
-            if isLoading {
-                ProgressView()
-                    .scaleEffect(1.5)
-                    .padding()
+            .onAppear {
+                locationManager.requestWhenInUseAuthorization()
             }
-        }
-        .padding()
-        .alert("Journey Update", isPresented: $showingAlert) {
-            Button("OK", role: .cancel) { }
-        } message: {
-            Text(alertMessage)
-        }
-        .onAppear {
-            locationManager.requestWhenInUseAuthorization()
         }
     }
     
@@ -103,7 +142,7 @@ struct JourneyTrackerView: View {
                 if let postcode = postcode {
                     startPostcode = postcode
                     isRecording = true
-                    alertMessage = "Journey started at \(postcode.postcode)"
+                    alertMessage = "Journey started at \(postcode.name) (\(postcode.postcode))"
                     showingAlert = true
                 } else {
                     alertMessage = "Could not determine your postcode"

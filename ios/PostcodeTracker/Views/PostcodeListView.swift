@@ -22,6 +22,11 @@ struct PostcodeListView: View {
                                 Text(postcode.postcode)
                                     .font(.subheadline)
                                     .foregroundColor(.gray)
+                                if let lat = postcode.latitude, let lon = postcode.longitude {
+                                    Text("Location: \(String(format: "%.4f, %.4f", lat, lon))")
+                                        .font(.caption)
+                                        .foregroundColor(.gray)
+                                }
                                 Text("Added: \(formatDate(postcode.created_at))")
                                     .font(.caption)
                                     .foregroundColor(.gray)
@@ -39,18 +44,29 @@ struct PostcodeListView: View {
                     Image(systemName: "plus")
                 }
             }
-            .alert("Add Postcode", isPresented: $showingAddPostcode) {
-                TextField("Enter name", text: $newName)
-                TextField("Enter postcode", text: $newPostcode)
-                    .autocapitalization(.allCharacters)
-                Button("Cancel", role: .cancel) {
-                    newPostcode = ""
-                    newName = ""
-                }
-                Button("Add") {
-                    Task {
-                        await addPostcode()
+            .sheet(isPresented: $showingAddPostcode) {
+                NavigationView {
+                    Form {
+                        Section(header: Text("Postcode Details")) {
+                            TextField("Enter name", text: $newName)
+                            TextField("Enter postcode", text: $newPostcode)
+                                .autocapitalization(.allCharacters)
+                        }
                     }
+                    .navigationTitle("Add Postcode")
+                    .navigationBarItems(
+                        leading: Button("Cancel") {
+                            showingAddPostcode = false
+                            newPostcode = ""
+                            newName = ""
+                        },
+                        trailing: Button("Add") {
+                            Task {
+                                await addPostcode()
+                            }
+                        }
+                        .disabled(newPostcode.isEmpty)
+                    )
                 }
             }
             .alert("Error", isPresented: .constant(errorMessage != nil)) {

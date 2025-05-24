@@ -66,7 +66,7 @@ struct MapView: View {
         
         do {
             postcodes = try await APIService.shared.getPostcodes()
-            await geocodePostcodes()
+            await createAnnotations()
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -74,24 +74,19 @@ struct MapView: View {
         isLoading = false
     }
     
-    private func geocodePostcodes() async {
-        let geocoder = CLGeocoder()
+    private func createAnnotations() async {
         var newAnnotations: [PostcodeAnnotation] = []
         
         for postcode in postcodes {
-            do {
-                let placemarks = try await geocoder.geocodeAddressString(postcode.postcode)
-                if let location = placemarks.first?.location?.coordinate {
-                    let annotation = PostcodeAnnotation(
-                        id: postcode.id,
-                        coordinate: location,
-                        title: postcode.postcode,
-                        postcode: postcode
-                    )
-                    newAnnotations.append(annotation)
-                }
-            } catch {
-                print("Geocoding error for \(postcode.postcode): \(error.localizedDescription)")
+            if let latitude = postcode.latitude, let longitude = postcode.longitude {
+                let coordinate = CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+                let annotation = PostcodeAnnotation(
+                    id: postcode.id,
+                    coordinate: coordinate,
+                    title: postcode.postcode,
+                    postcode: postcode
+                )
+                newAnnotations.append(annotation)
             }
         }
         
