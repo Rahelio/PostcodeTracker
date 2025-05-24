@@ -38,54 +38,69 @@ class APIService {
     }
     
     private func createRequest(path: String, method: String) -> URLRequest {
-        let url = URL(string: "\(baseURL)\(path)")!
+        let urlString = "\(baseURL)\(path)"
+        print("Creating request for URL: \(urlString)")
+        
+        guard let url = URL(string: urlString) else {
+            print("Failed to create URL from string: \(urlString)")
+            fatalError("Invalid URL: \(urlString)")
+        }
+        
         var request = URLRequest(url: url)
         request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         if let token = authToken {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
+        
+        print("Created request with URL: \(request.url?.absoluteString ?? "nil")")
         return request
     }
     
     // MARK: - Authentication
     
     func register(username: String, password: String) async throws -> String {
-        var request = createRequest(path: "/auth/register", method: "POST")
-        
-        let body = ["username": username, "password": password]
-        request.httpBody = try JSONSerialization.data(withJSONObject: body)
-        
-        print("Registration Request URL: \(request.url?.absoluteString ?? "")")
-        print("Registration Request Headers: \(request.allHTTPHeaderFields ?? [:])")
-        print("Registration Request Body: \(String(data: request.httpBody ?? Data(), encoding: .utf8) ?? "")")
-        
-        let (data, response) = try await URLSession.shared.data(for: request)
-        
-        print("Registration Response Data: \(String(data: data, encoding: .utf8) ?? "")")
-        
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw APIError.invalidResponse
-        }
-        
-        print("Registration Response Status: \(httpResponse.statusCode)")
-        
-        if httpResponse.statusCode == 201 {
-            do {
-                let result = try JSONDecoder().decode(RegisterResponse.self, from: data)
-                return result.message
-            } catch {
-                print("Registration Decoding Error: \(error)")
-                throw APIError.decodingError(error)
+        do {
+            var request = createRequest(path: "/auth/register", method: "POST")
+            
+            let body = ["username": username, "password": password]
+            request.httpBody = try JSONSerialization.data(withJSONObject: body)
+            
+            print("Registration Request URL: \(request.url?.absoluteString ?? "")")
+            print("Registration Request Headers: \(request.allHTTPHeaderFields ?? [:])")
+            print("Registration Request Body: \(String(data: request.httpBody ?? Data(), encoding: .utf8) ?? "")")
+            
+            let (data, response) = try await URLSession.shared.data(for: request)
+            
+            print("Registration Response Data: \(String(data: data, encoding: .utf8) ?? "")")
+            
+            guard let httpResponse = response as? HTTPURLResponse else {
+                print("Invalid response type")
+                throw APIError.invalidResponse
             }
-        } else {
-            do {
-                let error = try JSONDecoder().decode(ErrorResponse.self, from: data)
-                throw APIError.serverError(error.error)
-            } catch {
-                print("Registration Error Decoding Error: \(error)")
-                throw APIError.decodingError(error)
+            
+            print("Registration Response Status: \(httpResponse.statusCode)")
+            
+            if httpResponse.statusCode == 201 {
+                do {
+                    let result = try JSONDecoder().decode(RegisterResponse.self, from: data)
+                    return result.message
+                } catch {
+                    print("Registration Decoding Error: \(error)")
+                    throw APIError.decodingError(error)
+                }
+            } else {
+                do {
+                    let error = try JSONDecoder().decode(ErrorResponse.self, from: data)
+                    throw APIError.serverError(error.error)
+                } catch {
+                    print("Registration Error Decoding Error: \(error)")
+                    throw APIError.decodingError(error)
+                }
             }
+        } catch {
+            print("Registration Error: \(error)")
+            throw error
         }
     }
     
