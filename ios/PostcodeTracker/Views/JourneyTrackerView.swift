@@ -1,6 +1,53 @@
 import SwiftUI
 import CoreLocation
 
+class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
+    let manager = CLLocationManager()
+    private var locationContinuation: CheckedContinuation<CLLocation, Error>?
+    @Published var authorizationStatus: CLAuthorizationStatus = .notDetermined
+    
+    override init() {
+        super.init()
+        manager.delegate = self
+        manager.desiredAccuracy = kCLLocationAccuracyBest
+    }
+    
+    func requestLocation() async throws -> CLLocation {
+        // Check authorization status
+        if manager.authorizationStatus == .notDetermined {
+            manager.requestWhenInUseAuthorization()
+            // Wait for authorization
+            try await Task.sleep(nanoseconds: 1_000_000_000) // Wait 1 second
+        }
+        
+        // Check if we have permission
+        if manager.authorizationStatus == .denied || manager.authorizationStatus == .restricted {
+            throw NSError(domain: "LocationError", code: 1, userInfo: [NSLocalizedDescriptionKey: "Location access is denied. Please enable it in Settings."])
+        }
+        
+        return try await withCheckedThrowingContinuation { continuation in
+            locationContinuation = continuation
+            manager.requestLocation()
+        }
+    }
+    
+    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        if let location = locations.first {
+            locationContinuation?.resume(returning: location)
+            locationContinuation = nil
+        }
+    }
+    
+    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        locationContinuation?.resume(throwing: error)
+        locationContinuation = nil
+    }
+    
+    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        authorizationStatus = manager.authorizationStatus
+    }
+}
+
 struct JourneyTrackerView: View {
     @State private var isRecording = false
     @State private var startPostcode: Postcode?
@@ -9,7 +56,7 @@ struct JourneyTrackerView: View {
     @State private var showingAlert = false
     @State private var alertMessage = ""
     @State private var isLoading = false
-    @State private var locationManager = CLLocationManager()
+    @StateObject private var locationManager = LocationManager()
     
     var body: some View {
         NavigationView {
@@ -122,18 +169,17 @@ struct JourneyTrackerView: View {
                 Text(alertMessage)
             }
             .onAppear {
-                locationManager.requestWhenInUseAuthorization()
+                locationManager.manager.requestWhenInUseAuthorization()
             }
         }
     }
     
     private func startJourney() {
         isLoading = true
-        locationManager.requestLocation()
         
         Task {
             do {
-                let location = try await getCurrentLocation()
+                let location = try await locationManager.requestLocation()
                 let postcode = try await APIService.shared.getPostcodeFromCoordinates(
                     latitude: location.coordinate.latitude,
                     longitude: location.coordinate.longitude
@@ -158,11 +204,10 @@ struct JourneyTrackerView: View {
     
     private func endJourney() {
         isLoading = true
-        locationManager.requestLocation()
         
         Task {
             do {
-                let location = try await getCurrentLocation()
+                let location = try await locationManager.requestLocation()
                 let postcode = try await APIService.shared.getPostcodeFromCoordinates(
                     latitude: location.coordinate.latitude,
                     longitude: location.coordinate.longitude
@@ -197,30 +242,6 @@ struct JourneyTrackerView: View {
             }
             isLoading = false
         }
-    }
-    
-    private func getCurrentLocation() async throws -> CLLocation {
-        return try await withCheckedThrowingContinuation { continuation in
-            locationManager.delegate = LocationDelegate(continuation: continuation)
-        }
-    }
-}
-
-class LocationDelegate: NSObject, CLLocationManagerDelegate {
-    let continuation: CheckedContinuation<CLLocation, Error>
-    
-    init(continuation: CheckedContinuation<CLLocation, Error>) {
-        self.continuation = continuation
-    }
-    
-    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-        if let location = locations.first {
-            continuation.resume(returning: location)
-        }
-    }
-    
-    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        continuation.resume(throwing: error)
     }
 }
 
