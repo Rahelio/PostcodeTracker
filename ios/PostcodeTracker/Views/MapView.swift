@@ -17,6 +17,7 @@ struct MapView: View {
     @State private var annotations: [PostcodeAnnotation] = []
     @State private var isLoading = false
     @State private var errorMessage: String?
+    @Environment(\.colorScheme) private var colorScheme
     
     var body: some View {
         NavigationView {
@@ -30,7 +31,8 @@ struct MapView: View {
                             Text(annotation.title)
                                 .font(.caption)
                                 .padding(4)
-                                .background(Color.white)
+                                .background(colorScheme == .dark ? Color(.systemGray6) : .white)
+                                .foregroundColor(colorScheme == .dark ? .white : .black)
                                 .cornerRadius(4)
                                 .shadow(radius: 2)
                         }
