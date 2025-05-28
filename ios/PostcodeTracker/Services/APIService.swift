@@ -28,7 +28,7 @@ enum APIError: Error {
 
 class APIService {
     static let shared = APIService()
-    private let baseURL = "http://rickys.ddns.net:5319/api"
+    private let baseURL = "https://rickys.ddns.net/LocationApp/api"
     private var authToken: String?
     
     private init() {}
