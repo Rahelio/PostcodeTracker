@@ -53,6 +53,7 @@ struct PostcodeListView: View {
                 }
             }
             .sheet(isPresented: $showingAddPostcode) {
+<<<<<<< HEAD
                 AddPostcodeView(
                     newPostcode: $newPostcode,
                     newName: $newName,
@@ -61,6 +62,15 @@ struct PostcodeListView: View {
                         showingAddPostcode = false
                         newPostcode = ""
                         newName = ""
+=======
+                NavigationView {
+                    Form {
+                        Section(header: Text("Postcode Details")) {
+                            TextField("Postcode", text: $newPostcode)
+                                .postcodeInput($newPostcode)
+                            TextField("Name (optional)", text: $newName)
+                        }
+>>>>>>> 4896a22 (updates to server side and ios app)
                     }
                 )
             }
