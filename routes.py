@@ -55,11 +55,26 @@ def start_journey():
     """API endpoint to start a new journey."""
     try:
         data = request.get_json()
-        start_postcode = data.get('start_postcode', '').strip().upper().replace(" ", "")
+        latitude = data.get('latitude')
+        longitude = data.get('longitude')
         
-        # Validate postcode
-        if not PostcodeService.validate_postcode(start_postcode):
-            return jsonify({'success': False, 'message': 'Invalid UK postcode format'}), 400
+        # Check if latitude and longitude are provided
+        if latitude is None or longitude is None:
+            return jsonify({
+                'success': False, 
+                'message': 'Both latitude and longitude are required'
+            }), 400
+            
+        # Get postcode from coordinates
+        start_postcode = PostcodeService.get_postcode_from_coordinates(latitude, longitude)
+        
+        # Validate postcode was found
+        if not start_postcode:
+             logger.warning(f"Could not find postcode for coordinates: lat={latitude}, lon={longitude}")
+             return jsonify({
+                 'success': False, 
+                 'message': 'Could not determine UK postcode for the provided coordinates'
+             }), 400 # Use 400 as per previous server behavior, or consider 404
             
         # Check if there's already an active journey
         active_journey = Journey.query.filter_by(end_time=None).first()
@@ -77,8 +92,9 @@ def start_journey():
         return jsonify({
             'success': True, 
             'message': 'Journey started successfully',
-            'journey': journey.to_dict()
-        })
+            'journey_id': journey.id, # Return journey_id
+            'journey': journey.to_dict() # Optionally return full journey details
+        }), 201 # Use 201 Created status code
         
     except Exception as e:
         logger.error(f"Error starting journey: {e}")

@@ -39,32 +39,11 @@ struct PostcodeListView: View {
     
     var body: some View {
         NavigationView {
-            Group {
-                if isLoading {
-                    ProgressView()
-                } else {
-                    List {
-                        ForEach(postcodes) { postcode in
-                            VStack(alignment: .leading) {
-                                Text(postcode.name)
-                                    .font(.headline)
-                                Text(postcode.postcode)
-                                    .font(.subheadline)
-                                    .foregroundColor(.gray)
-                                if let lat = postcode.latitude, let lon = postcode.longitude {
-                                    Text("Location: \(String(format: "%.4f, %.4f", lat, lon))")
-                                        .font(.caption)
-                                        .foregroundColor(.gray)
-                                }
-                                Text("Added: \(formatDate(postcode.created_at))")
-                                    .font(.caption)
-                                    .foregroundColor(.gray)
-                            }
-                        }
-                        .onDelete(perform: deletePostcode)
-                    }
-                }
-            }
+            PostcodeListContentView(
+                postcodes: postcodes,
+                isLoading: isLoading,
+                onDelete: deletePostcode
+            )
             .navigationTitle("Postcodes")
             .toolbar {
                 Button(action: {
@@ -74,29 +53,16 @@ struct PostcodeListView: View {
                 }
             }
             .sheet(isPresented: $showingAddPostcode) {
-                NavigationView {
-                    Form {
-                        Section(header: Text("Postcode Details")) {
-                            TextField("Postcode", text: $newPostcode)
-                                .postcodeInput($newPostcode)
-                            TextField("Name (optional)", text: $newName)
-                        }
+                AddPostcodeView(
+                    newPostcode: $newPostcode,
+                    newName: $newName,
+                    onAdd: addPostcode,
+                    onCancel: {
+                        showingAddPostcode = false
+                        newPostcode = ""
+                        newName = ""
                     }
-                    .navigationTitle("Add Postcode")
-                    .navigationBarItems(
-                        leading: Button("Cancel") {
-                            showingAddPostcode = false
-                            newPostcode = ""
-                            newName = ""
-                        },
-                        trailing: Button("Add") {
-                            Task {
-                                await addPostcode()
-                            }
-                        }
-                        .disabled(newPostcode.isEmpty)
-                    )
-                }
+                )
             }
             .alert("Error", isPresented: .constant(errorMessage != nil)) {
                 Button("OK") {
@@ -158,15 +124,72 @@ struct PostcodeListView: View {
             }
         }
     }
+}
+
+struct PostcodeListContentView: View {
+    let postcodes: [Postcode]
+    let isLoading: Bool
+    let onDelete: (IndexSet) -> Void
     
-    private func formatDate(_ dateString: String) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSZ"
-        if let date = formatter.date(from: dateString) {
-            formatter.dateFormat = "MMM d, yyyy"
-            return formatter.string(from: date)
+    var body: some View {
+        Group {
+            if isLoading {
+                ProgressView()
+            } else {
+                List {
+                    ForEach(postcodes) { postcode in
+                        PostcodeRow(postcode: postcode)
+                    }
+                    .onDelete(perform: onDelete)
+                }
+            }
         }
-        return dateString
+    }
+}
+
+struct PostcodeRow: View {
+    let postcode: Postcode
+    
+    var body: some View {
+        VStack(alignment: .leading) {
+            Text(postcode.name)
+                .font(.headline)
+            Text(postcode.postcode)
+                .font(.subheadline)
+                .foregroundColor(.gray)
+            if let lat = postcode.latitude, let lon = postcode.longitude {
+                Text("Location: \(String(format: "%.4f, %.4f", lat, lon))")
+                    .font(.caption)
+                    .foregroundColor(.gray)
+            }
+        }
+    }
+}
+
+struct AddPostcodeView: View {
+    @Binding var newPostcode: String
+    @Binding var newName: String
+    let onAdd: () async -> Void
+    let onCancel: () -> Void
+    
+    var body: some View {
+        NavigationView {
+            Form {
+                Section(header: Text("Postcode Details")) {
+                    TextField("Postcode", text: $newPostcode)
+                        .postcodeInput($newPostcode)
+                    TextField("Name (optional)", text: $newName)
+                }
+            }
+            .navigationTitle("Add Postcode")
+            .navigationBarItems(
+                leading: Button("Cancel", action: onCancel),
+                trailing: Button("Add", action: {
+                    Task { await onAdd() }
+                })
+                .disabled(newPostcode.isEmpty)
+            )
+        }
     }
 }
 
