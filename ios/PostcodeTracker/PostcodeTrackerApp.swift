@@ -10,4 +10,4 @@ struct PostcodeTrackerApp: App {
                 .environmentObject(authManager)
         }
     }
-}
+} 

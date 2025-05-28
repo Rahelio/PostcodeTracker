@@ -69,14 +69,14 @@ def run_appropriate_migration():
     print(f"Database URL from app config: {db_url}")
     
     with app.app_context():
-        if db_url.startswith("sqlite:///"):
-            print("SQLite database detected. Running SQLite-specific migration...")
-            run_sqlite_migration()
-        else:
-            print("PostgreSQL database detected. Running standard migration...")
-            run_migration()
-        
-        print("Migration complete. You can now restart your application.")
+    if db_url.startswith("sqlite:///"):
+        print("SQLite database detected. Running SQLite-specific migration...")
+        run_sqlite_migration()
+    else:
+        print("PostgreSQL database detected. Running standard migration...")
+        run_migration()
+    
+    print("Migration complete. You can now restart your application.")
 
 def init_db():
     """Initialize the database with all required tables."""

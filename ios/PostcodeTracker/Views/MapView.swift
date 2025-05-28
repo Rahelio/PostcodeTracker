@@ -82,13 +82,13 @@ struct MapView: View {
         for postcode in postcodes {
             if let latitude = postcode.latitude, let longitude = postcode.longitude {
                 let coordinate = CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
-                let annotation = PostcodeAnnotation(
-                    id: postcode.id,
+                    let annotation = PostcodeAnnotation(
+                        id: postcode.id,
                     coordinate: coordinate,
-                    title: postcode.postcode,
-                    postcode: postcode
-                )
-                newAnnotations.append(annotation)
+                        title: postcode.postcode,
+                        postcode: postcode
+                    )
+                    newAnnotations.append(annotation)
             }
         }
         

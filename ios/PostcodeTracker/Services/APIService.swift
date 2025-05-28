@@ -65,37 +65,37 @@ class APIService {
     func register(username: String, password: String) async throws -> String {
         do {
             var request = try createRequest(path: "/auth/register", method: "POST")
-            
-            let body = ["username": username, "password": password]
-            request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        
+        let body = ["username": username, "password": password]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
             
             print("Registration Request URL: \(request.url?.absoluteString ?? "")")
             print("Registration Request Headers: \(request.allHTTPHeaderFields ?? [:])")
             print("Registration Request Body: \(String(data: request.httpBody ?? Data(), encoding: .utf8) ?? "")")
-            
-            let (data, response) = try await URLSession.shared.data(for: request)
+        
+        let (data, response) = try await URLSession.shared.data(for: request)
             
             print("Registration Response Data: \(String(data: data, encoding: .utf8) ?? "")")
-            
-            guard let httpResponse = response as? HTTPURLResponse else {
+        
+        guard let httpResponse = response as? HTTPURLResponse else {
                 print("Invalid response type")
-                throw APIError.invalidResponse
-            }
+            throw APIError.invalidResponse
+        }
             
             print("Registration Response Status: \(httpResponse.statusCode)")
-            
-            if httpResponse.statusCode == 201 {
+        
+        if httpResponse.statusCode == 201 {
                 do {
-                    let result = try JSONDecoder().decode(RegisterResponse.self, from: data)
-                    return result.message
+            let result = try JSONDecoder().decode(RegisterResponse.self, from: data)
+            return result.message
                 } catch {
                     print("Registration Decoding Error: \(error)")
                     throw APIError.decodingError(error)
                 }
-            } else {
+        } else {
                 do {
-                    let error = try JSONDecoder().decode(ErrorResponse.self, from: data)
-                    throw APIError.serverError(error.error)
+            let error = try JSONDecoder().decode(ErrorResponse.self, from: data)
+            throw APIError.serverError(error.error)
                 } catch {
                     print("Registration Error Decoding Error: \(error)")
                     throw APIError.decodingError(error)
@@ -110,37 +110,37 @@ class APIService {
     func login(username: String, password: String) async throws -> String {
         do {
             var request = try createRequest(path: "/auth/login", method: "POST")
-            
-            let body = ["username": username, "password": password]
-            request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        
+        let body = ["username": username, "password": password]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
             
             print("Login Request URL: \(request.url?.absoluteString ?? "")")
             print("Login Request Headers: \(request.allHTTPHeaderFields ?? [:])")
             print("Login Request Body: \(String(data: request.httpBody ?? Data(), encoding: .utf8) ?? "")")
-            
-            let (data, response) = try await URLSession.shared.data(for: request)
+        
+        let (data, response) = try await URLSession.shared.data(for: request)
             
             print("Login Response Data: \(String(data: data, encoding: .utf8) ?? "")")
-            
-            guard let httpResponse = response as? HTTPURLResponse else {
+        
+        guard let httpResponse = response as? HTTPURLResponse else {
                 print("Invalid response type")
-                throw APIError.invalidResponse
-            }
+            throw APIError.invalidResponse
+        }
             
             print("Login Response Status: \(httpResponse.statusCode)")
-            
-            if httpResponse.statusCode == 200 {
+        
+        if httpResponse.statusCode == 200 {
                 do {
-                    let result = try JSONDecoder().decode(LoginResponse.self, from: data)
-                    return result.access_token
+            let result = try JSONDecoder().decode(LoginResponse.self, from: data)
+            return result.access_token
                 } catch {
                     print("Login Decoding Error: \(error)")
                     throw APIError.decodingError(error)
                 }
-            } else {
+        } else {
                 do {
-                    let error = try JSONDecoder().decode(ErrorResponse.self, from: data)
-                    throw APIError.serverError(error.error)
+            let error = try JSONDecoder().decode(ErrorResponse.self, from: data)
+            throw APIError.serverError(error.error)
                 } catch {
                     print("Login Error Decoding Error: \(error)")
                     throw APIError.decodingError(error)
@@ -166,15 +166,15 @@ class APIService {
             
             print("APIService: Response received")
             print("APIService: Response Data: \(String(data: data, encoding: .utf8) ?? "")")
-            
-            guard let httpResponse = response as? HTTPURLResponse else {
+        
+        guard let httpResponse = response as? HTTPURLResponse else {
                 print("APIService: Invalid response type")
-                throw APIError.invalidResponse
-            }
+            throw APIError.invalidResponse
+        }
             
             print("APIService: Response Status Code: \(httpResponse.statusCode)")
-            
-            if httpResponse.statusCode == 200 {
+        
+        if httpResponse.statusCode == 200 {
                 do {
                     let postcodes = try JSONDecoder().decode([Postcode].self, from: data)
                     print("APIService: Successfully decoded \(postcodes.count) postcodes")
@@ -183,14 +183,14 @@ class APIService {
                     print("APIService: Decoding error: \(error)")
                     throw APIError.decodingError(error)
                 }
-            } else if httpResponse.statusCode == 401 {
+        } else if httpResponse.statusCode == 401 {
                 print("APIService: Unauthorized error")
-                throw APIError.unauthorized
-            } else {
+            throw APIError.unauthorized
+        } else {
                 do {
-                    let error = try JSONDecoder().decode(ErrorResponse.self, from: data)
+            let error = try JSONDecoder().decode(ErrorResponse.self, from: data)
                     print("APIService: Server error: \(error.error)")
-                    throw APIError.serverError(error.error)
+            throw APIError.serverError(error.error)
                 } catch {
                     print("APIService: Error decoding error response: \(error)")
                     throw APIError.serverError("Unknown server error")
@@ -244,7 +244,7 @@ class APIService {
             throw APIError.invalidResponse
         }
         
-        if httpResponse.statusCode != 204 {
+        if httpResponse.statusCode != 200 {
             if httpResponse.statusCode == 401 {
                 throw APIError.unauthorized
             } else {

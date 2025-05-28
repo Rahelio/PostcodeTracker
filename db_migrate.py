@@ -27,15 +27,15 @@ def run_migration():
         
         # Create all tables
         logger.info("Creating all tables")
-        db.create_all()
+            db.create_all()
         db.session.commit()
         logger.info("Migration completed successfully")
         
-    except Exception as e:
+            except Exception as e:
         logger.error(f"Error during migration: {e}")
         db.session.rollback()
         raise
 
 if __name__ == "__main__":
     with app.app_context():
-        run_migration()
+    run_migration()

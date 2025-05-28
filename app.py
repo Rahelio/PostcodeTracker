@@ -90,5 +90,5 @@ with app.app_context():
         if "already exists" in str(e):
             logger.warning("Tables already exist, continuing...")
         else:
-            logger.error("Please check your database configuration and ensure PostgreSQL is running")
-            raise
+        logger.error("Please check your database configuration and ensure PostgreSQL is running")
+        raise

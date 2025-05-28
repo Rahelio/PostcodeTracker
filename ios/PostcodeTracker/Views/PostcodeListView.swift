@@ -1,5 +1,34 @@
 import SwiftUI
 
+struct PostcodeTextField: ViewModifier {
+    @Binding var text: String
+    
+    func body(content: Content) -> some View {
+        content
+            .textInputAutocapitalization(.characters)
+            .onChange(of: text) { newValue in
+                // Convert to uppercase and remove any existing spaces
+                let cleaned = newValue.uppercased().replacingOccurrences(of: " ", with: "")
+                
+                // Add space after 4 characters if there are more than 4 characters
+                if cleaned.count > 4 {
+                    let index = cleaned.index(cleaned.startIndex, offsetBy: 4)
+                    let firstPart = cleaned[..<index]
+                    let secondPart = cleaned[index...]
+                    text = "\(firstPart) \(secondPart)"
+                } else {
+                    text = cleaned
+                }
+            }
+    }
+}
+
+extension View {
+    func postcodeInput(_ text: Binding<String>) -> some View {
+        modifier(PostcodeTextField(text: text))
+    }
+}
+
 struct PostcodeListView: View {
     @State private var postcodes: [Postcode] = []
     @State private var isLoading = false
@@ -48,9 +77,9 @@ struct PostcodeListView: View {
                 NavigationView {
                     Form {
                         Section(header: Text("Postcode Details")) {
-                            TextField("Enter name", text: $newName)
-                            TextField("Enter postcode", text: $newPostcode)
-                                .autocapitalization(.allCharacters)
+                            TextField("Postcode", text: $newPostcode)
+                                .postcodeInput($newPostcode)
+                            TextField("Name (optional)", text: $newName)
                         }
                     }
                     .navigationTitle("Add Postcode")

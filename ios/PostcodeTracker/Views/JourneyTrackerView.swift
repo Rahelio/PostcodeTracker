@@ -57,6 +57,9 @@ struct JourneyTrackerView: View {
     @State private var alertMessage = ""
     @State private var isLoading = false
     @StateObject private var locationManager = LocationManager()
+    @State private var isManualEntry = false
+    @State private var manualStartPostcode = ""
+    @State private var manualEndPostcode = ""
     
     var body: some View {
         NavigationView {
@@ -124,6 +127,36 @@ struct JourneyTrackerView: View {
                 .background(Color(.systemBackground))
                 .cornerRadius(15)
                 .shadow(radius: 5)
+                
+                if isManualEntry {
+                    VStack(spacing: 20) {
+                        TextField("Start Postcode", text: $manualStartPostcode)
+                            .postcodeInput($manualStartPostcode)
+                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                            .autocapitalization(.allCharacters)
+                            .disableAutocorrection(true)
+                        
+                        TextField("End Postcode", text: $manualEndPostcode)
+                            .postcodeInput($manualEndPostcode)
+                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                            .autocapitalization(.allCharacters)
+                            .disableAutocorrection(true)
+                        
+                        Button(action: createManualJourney) {
+                            HStack {
+                                Image(systemName: "plus.circle.fill")
+                                Text("Create Manual Journey")
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.blue)
+                            .foregroundColor(.white)
+                            .cornerRadius(10)
+                        }
+                        .disabled(manualStartPostcode.isEmpty || manualEndPostcode.isEmpty)
+                    }
+                    .padding()
+                }
                 
                 // Action Buttons
                 VStack(spacing: 15) {
@@ -236,6 +269,36 @@ struct JourneyTrackerView: View {
                     alertMessage = "Could not determine your postcode"
                     showingAlert = true
                 }
+            } catch {
+                alertMessage = "Error: \(error.localizedDescription)"
+                showingAlert = true
+            }
+            isLoading = false
+        }
+    }
+    
+    private func createManualJourney() {
+        isLoading = true
+        
+        Task {
+            do {
+                let journey = try await APIService.shared.createManualJourney(
+                    startPostcode: manualStartPostcode,
+                    endPostcode: manualEndPostcode
+                )
+                
+                // Update UI with journey details
+                startPostcode = journey.start_location
+                endPostcode = journey.end_location
+                distance = journey.distance_miles
+                
+                // Clear manual entry fields
+                manualStartPostcode = ""
+                manualEndPostcode = ""
+                isManualEntry = false
+                
+                alertMessage = "Manual journey created! Distance: \(String(format: "%.1f", journey.distance_miles)) miles"
+                showingAlert = true
             } catch {
                 alertMessage = "Error: \(error.localizedDescription)"
                 showingAlert = true

@@ -82,10 +82,10 @@ struct AuthView: View {
                     
                     // Then login
                     print("Attempting login after registration...")
-                    let token = try await APIService.shared.login(username: username, password: password)
+                                let token = try await APIService.shared.login(username: username, password: password)
                     print("Login successful after registration, token received")
-                    await MainActor.run {
-                        authManager.login(token: token)
+                                await MainActor.run {
+                                    authManager.login(token: token)
                         print("AuthManager updated after registration, isAuthenticated: \(authManager.isAuthenticated)")
                         isLoading = false
                     }
@@ -104,4 +104,4 @@ struct AuthView: View {
 #Preview {
     AuthView()
         .environmentObject(AuthManager.shared)
-} 
+}
