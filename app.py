@@ -42,9 +42,9 @@ CORS(app, resources={
 # Use environment variable for secret key with a fallback
 app.secret_key = os.environ.get("SECRET_KEY", os.urandom(24))
 
-# Configure HTTP/1.1
+# Configure server settings
 app.config['SERVER_NAME'] = None  # Allow any hostname
-app.config['PREFERRED_URL_SCHEME'] = 'https'  # Force HTTPS
+app.config['PREFERRED_URL_SCHEME'] = 'http'  # Use HTTP by default
 app.config['JSON_SORT_KEYS'] = False
 app.config['JSONIFY_PRETTYPRINT_REGULAR'] = False
 app.config['JSONIFY_MIMETYPE'] = 'application/json'

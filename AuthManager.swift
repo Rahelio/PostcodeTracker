@@ -6,7 +6,7 @@ class AuthManager: ObservableObject {
     @Published var currentUser: User?
     @Published var error: String?
     
-    private let baseURL = "https://your-api-url.com/api"
+    private let baseURL = "https://rickys.ddns.net/LocationApp/api"
     private let defaults = UserDefaults.standard
     private let tokenKey = "authToken"
     
@@ -24,6 +24,7 @@ class AuthManager: ObservableObject {
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.addValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.addValue("application/json", forHTTPHeaderField: "Accept")
         
         URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
@@ -59,6 +60,7 @@ class AuthManager: ObservableObject {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.addValue("application/json", forHTTPHeaderField: "Accept")
         
         do {
             request.httpBody = try JSONSerialization.data(withJSONObject: parameters)
@@ -111,6 +113,7 @@ class AuthManager: ObservableObject {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.addValue("application/json", forHTTPHeaderField: "Accept")
         
         do {
             request.httpBody = try JSONSerialization.data(withJSONObject: parameters)
