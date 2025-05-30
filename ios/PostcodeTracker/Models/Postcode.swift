@@ -7,6 +7,7 @@ struct Postcode: Codable, Identifiable, Hashable {
     let postcode: String
     let latitude: Double?
     let longitude: Double?
+    let created_at: String?
     
     enum CodingKeys: String, CodingKey {
         case id
@@ -14,6 +15,7 @@ struct Postcode: Codable, Identifiable, Hashable {
         case postcode
         case latitude
         case longitude
+        case created_at
     }
     
     // Add custom initializer for creating a Postcode from just a postcode string
@@ -23,6 +25,7 @@ struct Postcode: Codable, Identifiable, Hashable {
         self.postcode = postcodeString
         self.latitude = nil
         self.longitude = nil
+        self.created_at = ISO8601DateFormatter().string(from: Date())
     }
 }
 

@@ -1,5 +1,12 @@
 import Foundation
-import PostcodeTracker // Import the main module to access model structs
+import PostcodeTracker
+
+// Import model files
+@_exported import struct PostcodeTracker.Postcode
+@_exported import struct PostcodeTracker.Journey
+@_exported import struct PostcodeTracker.LoginResponse
+@_exported import struct PostcodeTracker.RegisterResponse
+@_exported import struct PostcodeTracker.ErrorResponse
 
 enum APIError: Error {
     case invalidURL
@@ -8,15 +15,11 @@ enum APIError: Error {
     case decodingError(Error)
     case serverError(String)
     case unauthorized
-<<<<<<< Updated upstream
-=======
     case unknown
->>>>>>> Stashed changes
     
     var localizedDescription: String {
         switch self {
         case .invalidURL:
-<<<<<<< Updated upstream
             return "Invalid URL - Please check your server configuration"
         case .networkError(let error):
             return "Network error: \(error.localizedDescription)"
@@ -28,6 +31,8 @@ enum APIError: Error {
             return message
         case .unauthorized:
             return "Unauthorized"
+        case .unknown:
+            return "An unknown error occurred"
         }
     }
 }
@@ -48,33 +53,12 @@ struct PostcodeResponse: Codable {
 // Add response struct for starting a journey
 struct StartJourneyResponse: Codable {
     let journey_id: Int
-=======
-            return "Invalid server URL"
-        case .invalidResponse:
-            return "Invalid response from server"
-        case .networkError(let error):
-            return "Network error: \(error.localizedDescription)"
-        case .decodingError(let error):
-            return "Error processing server response: \(error.localizedDescription)"
-        case .serverError(let message):
-            return "Server error: \(message)"
-        case .unauthorized:
-            return "Invalid username or password"
-        case .unknown:
-            return "An unknown error occurred"
-        }
-    }
->>>>>>> Stashed changes
 }
 
 class APIService {
     static let shared = APIService()
     private let baseURL = "https://rickys.ddns.net/LocationApp/api"
     private var authToken: String?
-<<<<<<< Updated upstream
-=======
-    private let baseURL = "http://localhost:5319/api"
->>>>>>> Stashed changes
     
     private init() {}
     
@@ -120,7 +104,6 @@ class APIService {
         
         let (data, response) = try await URLSession.shared.data(for: request)
             
-<<<<<<< Updated upstream
             print("Registration Response Data: \(String(data: data, encoding: .utf8) ?? "")")
         
         guard let httpResponse = response as? HTTPURLResponse else {
@@ -131,24 +114,11 @@ class APIService {
             print("Registration Response Status: \(httpResponse.statusCode)")
         
         if httpResponse.statusCode == 201 {
-=======
-            // Print response for debugging
-            if let responseString = String(data: data, encoding: .utf8) {
-                print("Server response: \(responseString)")
-            }
-            
-            switch httpResponse.statusCode {
-            case 200...299:
->>>>>>> Stashed changes
                 do {
             let result = try JSONDecoder().decode(RegisterResponse.self, from: data)
             return result.message
                 } catch {
-<<<<<<< Updated upstream
                     print("Registration Decoding Error: \(error)")
-=======
-                    print("Decoding error: \(error)")
->>>>>>> Stashed changes
                     throw APIError.decodingError(error)
                 }
         } else {
