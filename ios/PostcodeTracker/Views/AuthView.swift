@@ -28,14 +28,18 @@ struct AuthView: View {
                         .textFieldStyle(RoundedBorderTextFieldStyle())
                         .autocapitalization(.none)
                         .disableAutocorrection(true)
+                        .disabled(isLoading)
                     
                     SecureField("Password", text: $password)
                         .textFieldStyle(RoundedBorderTextFieldStyle())
+                        .disabled(isLoading)
                     
                     if let errorMessage = errorMessage {
                         Text(errorMessage)
                             .foregroundColor(.red)
                             .font(.caption)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal)
                     }
                     
                     Button(action: performAction) {
@@ -48,7 +52,7 @@ struct AuthView: View {
                         }
                     }
                     .buttonStyle(.borderedProminent)
-                    .disabled(isLoading)
+                    .disabled(isLoading || username.isEmpty || password.isEmpty)
                 }
                 .padding()
             }
@@ -60,20 +64,22 @@ struct AuthView: View {
     }
     
     private func performAction() {
+        guard !username.isEmpty && !password.isEmpty else {
+            errorMessage = "Please enter both username and password"
+            return
+        }
+        
         isLoading = true
         errorMessage = nil
         
-        Task {
+        Task { @MainActor in
             do {
                 if isLogin {
                     print("Attempting login...")
                     let token = try await APIService.shared.login(username: username, password: password)
                     print("Login successful, token received")
-                    await MainActor.run {
-                        authManager.login(token: token)
-                        print("AuthManager updated, isAuthenticated: \(authManager.isAuthenticated)")
-                        isLoading = false
-                    }
+                    authManager.login(token: token)
+                    print("AuthManager updated, isAuthenticated: \(authManager.isAuthenticated)")
                 } else {
                     print("Attempting registration...")
                     // First register
@@ -82,21 +88,20 @@ struct AuthView: View {
                     
                     // Then login
                     print("Attempting login after registration...")
-                                let token = try await APIService.shared.login(username: username, password: password)
+                    let token = try await APIService.shared.login(username: username, password: password)
                     print("Login successful after registration, token received")
-                                await MainActor.run {
-                                    authManager.login(token: token)
-                        print("AuthManager updated after registration, isAuthenticated: \(authManager.isAuthenticated)")
-                        isLoading = false
-                    }
+                    authManager.login(token: token)
+                    print("AuthManager updated after registration, isAuthenticated: \(authManager.isAuthenticated)")
                 }
+            } catch let error as APIError {
+                print("API Error occurred: \(error.localizedDescription)")
+                errorMessage = error.localizedDescription
             } catch {
-                print("Error occurred: \(error.localizedDescription)")
-                await MainActor.run {
-                    errorMessage = error.localizedDescription
-                    isLoading = false
-                }
+                print("Unexpected error occurred: \(error.localizedDescription)")
+                errorMessage = "An unexpected error occurred. Please try again."
             }
+            
+            isLoading = false
         }
     }
 }

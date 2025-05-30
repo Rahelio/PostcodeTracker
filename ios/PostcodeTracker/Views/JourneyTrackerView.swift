@@ -147,11 +147,8 @@ struct JourneyTrackerView: View {
     @State private var isManualEntry = false
     @State private var manualStartPostcode = ""
     @State private var manualEndPostcode = ""
-<<<<<<< HEAD
     @State private var backgroundTask: UIBackgroundTaskIdentifier = .invalid
     @State private var currentJourneyId: Int? // State variable to hold journey ID
-=======
->>>>>>> 4896a22 (updates to server side and ios app)
     
     var body: some View {
         NavigationView {
@@ -312,81 +309,7 @@ struct JourneyTrackerView: View {
                         .padding(.horizontal)
                     }
                 }
-<<<<<<< HEAD
                 .padding(.vertical)
-=======
-                .padding()
-                .frame(maxWidth: .infinity)
-                .background(Color(.systemBackground))
-                .cornerRadius(15)
-                .shadow(radius: 5)
-                
-                if isManualEntry {
-                    VStack(spacing: 20) {
-                        TextField("Start Postcode", text: $manualStartPostcode)
-                            .postcodeInput($manualStartPostcode)
-                            .textFieldStyle(RoundedBorderTextFieldStyle())
-                            .autocapitalization(.allCharacters)
-                            .disableAutocorrection(true)
-                        
-                        TextField("End Postcode", text: $manualEndPostcode)
-                            .postcodeInput($manualEndPostcode)
-                            .textFieldStyle(RoundedBorderTextFieldStyle())
-                            .autocapitalization(.allCharacters)
-                            .disableAutocorrection(true)
-                        
-                        Button(action: createManualJourney) {
-                            HStack {
-                                Image(systemName: "plus.circle.fill")
-                                Text("Create Manual Journey")
-                            }
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color.blue)
-                            .foregroundColor(.white)
-                            .cornerRadius(10)
-                        }
-                        .disabled(manualStartPostcode.isEmpty || manualEndPostcode.isEmpty)
-                    }
-                    .padding()
-                }
-                
-                // Action Buttons
-                VStack(spacing: 15) {
-                    if !isRecording {
-                        Button(action: startJourney) {
-                            HStack {
-                                Image(systemName: "play.fill")
-                                Text("Start Journey")
-                            }
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color.green)
-                            .foregroundColor(.white)
-                            .cornerRadius(10)
-                        }
-                    } else {
-                        Button(action: endJourney) {
-                            HStack {
-                                Image(systemName: "stop.fill")
-                                Text("End Journey")
-                            }
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color.red)
-                            .foregroundColor(.white)
-                            .cornerRadius(10)
-                        }
-                    }
-                }
-                .padding(.horizontal)
-                
-                if isLoading {
-                    ProgressView()
-                        .scaleEffect(1.5)
-                        .padding()
-                }
->>>>>>> 4896a22 (updates to server side and ios app)
             }
             .background(Color(.systemGroupedBackground))
             .navigationTitle("Track Journey")
@@ -588,36 +511,6 @@ struct JourneyTrackerView: View {
         if backgroundTask != .invalid {
             UIApplication.shared.endBackgroundTask(backgroundTask)
             backgroundTask = .invalid
-        }
-    }
-    
-    private func createManualJourney() {
-        isLoading = true
-        
-        Task {
-            do {
-                let journey = try await APIService.shared.createManualJourney(
-                    startPostcode: manualStartPostcode,
-                    endPostcode: manualEndPostcode
-                )
-                
-                // Update UI with journey details
-                startPostcode = journey.start_location
-                endPostcode = journey.end_location
-                distance = journey.distance_miles
-                
-                // Clear manual entry fields
-                manualStartPostcode = ""
-                manualEndPostcode = ""
-                isManualEntry = false
-                
-                alertMessage = "Manual journey created! Distance: \(String(format: "%.1f", journey.distance_miles)) miles"
-                showingAlert = true
-            } catch {
-                alertMessage = "Error: \(error.localizedDescription)"
-                showingAlert = true
-            }
-            isLoading = false
         }
     }
 }

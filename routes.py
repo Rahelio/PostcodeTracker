@@ -6,6 +6,7 @@ import io
 import pandas as pd
 import tempfile
 import csv
+import os
 from app import app, db
 from models import Journey, Postcode, User
 from postcode_service import PostcodeService
@@ -16,8 +17,35 @@ import jwt
 logger = logging.getLogger(__name__)
 
 # Add JWT configuration
-app.config['SECRET_KEY'] = 'your-secret-key'  # Change this to a secure secret key
+app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', os.urandom(24))
 app.config['JWT_EXPIRATION_DELTA'] = timedelta(days=1)
+
+def create_token(user_id):
+    """Create a JWT token for the user."""
+    try:
+        payload = {
+            'user_id': user_id,
+            'exp': datetime.utcnow() + app.config['JWT_EXPIRATION_DELTA']
+        }
+        return jwt.encode(payload, app.config['JWT_SECRET_KEY'], algorithm='HS256')
+    except Exception as e:
+        logger.error(f"Error creating token: {e}")
+        raise
+
+def verify_token(token):
+    """Verify a JWT token."""
+    try:
+        payload = jwt.decode(token, app.config['JWT_SECRET_KEY'], algorithms=['HS256'])
+        return payload['user_id']
+    except jwt.ExpiredSignatureError:
+        logger.warning("Token has expired")
+        raise
+    except jwt.InvalidTokenError as e:
+        logger.warning(f"Invalid token: {e}")
+        raise
+    except Exception as e:
+        logger.error(f"Error verifying token: {e}")
+        raise
 
 @app.route('/api/health', methods=['GET'])
 def health_check():
@@ -551,47 +579,24 @@ def create_manual_journey():
 
 @app.route('/api/auth/register', methods=['POST'])
 def register():
-    """API endpoint for user registration."""
+    """Register a new user."""
     try:
-        # Log detailed request information
-        logger.info("=== Registration Request Details ===")
-        logger.info(f"Request Method: {request.method}")
-        logger.info(f"Request Headers: {dict(request.headers)}")
-        logger.info(f"Request Content Type: {request.content_type}")
-        logger.info(f"Request Data: {request.get_data()}")
-        logger.info(f"Request JSON: {request.get_json(silent=True)}")
-        logger.info(f"Request Form: {request.form}")
-        logger.info(f"Request Args: {request.args}")
-        logger.info("=================================")
-        
         data = request.get_json()
-        if not data:
-            logger.error("No JSON data received in request")
-            response = jsonify({
-                'error': 'No data received'
-            })
-            logger.info(f"Registration Response: {response.get_data(as_text=True)}")
-            return response, 400
-            
         username = data.get('username')
         password = data.get('password')
         
         if not username or not password:
-            logger.error(f"Missing required fields. Username: {bool(username)}, Password: {bool(password)}")
-            response = jsonify({
-                'error': 'Username and password are required'
-            })
-            logger.info(f"Registration Response: {response.get_data(as_text=True)}")
-            return response, 400
+            return jsonify({
+                'success': False,
+                'message': 'Username and password are required'
+            }), 400
             
         # Check if username already exists
         if User.query.filter_by(username=username).first():
-            logger.error(f"Username already exists: {username}")
-            response = jsonify({
-                'error': 'Username already exists'
-            })
-            logger.info(f"Registration Response: {response.get_data(as_text=True)}")
-            return response, 400
+            return jsonify({
+                'success': False,
+                'message': 'Username already exists'
+            }), 400
             
         # Create new user
         user = User(
@@ -601,80 +606,62 @@ def register():
         db.session.add(user)
         db.session.commit()
         
-        logger.info(f"User registered successfully: {username}")
-        response = jsonify({
-            'message': 'Registration successful'
-        })
-        logger.info(f"Registration Response: {response.get_data(as_text=True)}")
-        return response, 201
+        return jsonify({
+            'success': True,
+            'message': 'User registered successfully'
+        }), 201
         
     except Exception as e:
-        logger.error(f"Error registering user: {str(e)}")
+        logger.error(f"Error registering user: {e}")
         db.session.rollback()
-        response = jsonify({
-            'error': 'Server error'
-        })
-        logger.info(f"Registration Response: {response.get_data(as_text=True)}")
-        return response, 500
+        return jsonify({
+            'success': False,
+            'message': 'Server error during registration'
+        }), 500
 
 @app.route('/api/auth/login', methods=['POST'])
 def login():
-    """API endpoint for user login."""
+    """Login a user."""
     try:
-        # Log detailed request information
-        logger.info("=== Login Request Details ===")
-        logger.info(f"Request Method: {request.method}")
-        logger.info(f"Request Headers: {dict(request.headers)}")
-        logger.info(f"Request Content Type: {request.content_type}")
-        logger.info(f"Request Data: {request.get_data()}")
-        logger.info(f"Request JSON: {request.get_json(silent=True)}")
-        logger.info(f"Request Form: {request.form}")
-        logger.info(f"Request Args: {request.args}")
-        logger.info("=================================")
-        
         data = request.get_json()
         username = data.get('username')
         password = data.get('password')
         
         if not username or not password:
-            response = jsonify({
-                'error': 'Username and password are required'
-            })
-            logger.info(f"Login Response: {response.get_data(as_text=True)}")
-            return response, 400
+            return jsonify({
+                'success': False,
+                'message': 'Username and password are required'
+            }), 400
             
         # Find user
         user = User.query.filter_by(username=username).first()
         if not user or not check_password_hash(user.password_hash, password):
-            response = jsonify({
-                'error': 'Invalid username or password'
-            })
-            logger.info(f"Login Response: {response.get_data(as_text=True)}")
-            return response, 401
+            return jsonify({
+                'success': False,
+                'message': 'Invalid username or password'
+            }), 401
             
-        # Generate JWT token
-        token = jwt.encode(
-            {
-                'user_id': user.id,
-                'exp': datetime.utcnow() + app.config['JWT_EXPIRATION_DELTA']
-            },
-            app.config['SECRET_KEY'],
-            algorithm='HS256'
-        )
-        
-        response = jsonify({
-            'access_token': token
-        })
-        logger.info(f"Login Response: {response.get_data(as_text=True)}")
-        return response
-        
+        # Create token
+        try:
+            token = create_token(user.id)
+            return jsonify({
+                'success': True,
+                'message': 'Login successful',
+                'access_token': token
+            })
+        except Exception as e:
+            logger.error(f"Error creating token: {e}")
+            return jsonify({
+                'success': False,
+                'message': 'Error creating authentication token'
+            }), 500
+            
     except Exception as e:
-        logger.error(f"Error logging in: {e}")
-        response = jsonify({
-            'error': 'Server error'
-        })
-        logger.info(f"Login Response: {response.get_data(as_text=True)}")
-        return response, 500
+        logger.error(f"Error during login: {e}")
+        return jsonify({
+            'success': False,
+            'message': 'Server error during login'
+        }), 500
 
 # Postcode management endpoints
 @app.route('/api/postcodes', methods=['GET'])
@@ -688,7 +675,7 @@ def get_postcodes():
             
         token = auth_header.split(' ')[1]
         try:
-            payload = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
+            payload = jwt.decode(token, app.config['JWT_SECRET_KEY'], algorithms=['HS256'])
         except jwt.InvalidTokenError:
             return jsonify({'error': 'Invalid token'}), 401
             
@@ -718,7 +705,7 @@ def add_postcode():
             
         token = auth_header.split(' ')[1]
         try:
-            payload = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
+            payload = jwt.decode(token, app.config['JWT_SECRET_KEY'], algorithms=['HS256'])
         except jwt.InvalidTokenError:
             return jsonify({'error': 'Invalid token'}), 401
             
@@ -771,7 +758,7 @@ def delete_postcode(postcode_id):
             
         token = auth_header.split(' ')[1]
         try:
-            payload = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
+            payload = jwt.decode(token, app.config['JWT_SECRET_KEY'], algorithms=['HS256'])
         except jwt.InvalidTokenError:
             return jsonify({'error': 'Invalid token'}), 401
             

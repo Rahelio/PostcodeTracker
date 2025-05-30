@@ -27,12 +27,24 @@ db = SQLAlchemy(model_class=Base)
 
 # Create Flask app
 app = Flask(__name__)
-CORS(app)  # Enable CORS for all routes
-app.secret_key = os.environ.get("SESSION_SECRET", "dev-secret-key")
+
+# Configure CORS with specific settings
+CORS(app, resources={
+    r"/api/*": {
+        "origins": ["*"],
+        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        "allow_headers": ["Content-Type", "Authorization"],
+        "supports_credentials": True,
+        "max_age": 3600
+    }
+})
+
+# Use environment variable for secret key with a fallback
+app.secret_key = os.environ.get("SECRET_KEY", os.urandom(24))
 
 # Configure HTTP/1.1
 app.config['SERVER_NAME'] = None  # Allow any hostname
-app.config['PREFERRED_URL_SCHEME'] = 'http'
+app.config['PREFERRED_URL_SCHEME'] = 'https'  # Force HTTPS
 app.config['JSON_SORT_KEYS'] = False
 app.config['JSONIFY_PRETTYPRINT_REGULAR'] = False
 app.config['JSONIFY_MIMETYPE'] = 'application/json'
@@ -90,5 +102,5 @@ with app.app_context():
         if "already exists" in str(e):
             logger.warning("Tables already exist, continuing...")
         else:
-        logger.error("Please check your database configuration and ensure PostgreSQL is running")
-        raise
+            logger.error("Please check your database configuration and ensure PostgreSQL is running")
+            raise

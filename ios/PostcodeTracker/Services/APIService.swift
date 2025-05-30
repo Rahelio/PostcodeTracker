@@ -1,12 +1,7 @@
 import Foundation
-import PostcodeTracker
 
 // Import model files
-@_exported import struct PostcodeTracker.Postcode
-@_exported import struct PostcodeTracker.Journey
-@_exported import struct PostcodeTracker.LoginResponse
-@_exported import struct PostcodeTracker.RegisterResponse
-@_exported import struct PostcodeTracker.ErrorResponse
+import PostcodeTracker
 
 enum APIError: Error {
     case invalidURL
@@ -15,6 +10,9 @@ enum APIError: Error {
     case decodingError(Error)
     case serverError(String)
     case unauthorized
+    case rateLimitExceeded
+    case redirectError
+    case connectionError
     case unknown
     
     var localizedDescription: String {
@@ -22,6 +20,22 @@ enum APIError: Error {
         case .invalidURL:
             return "Invalid URL - Please check your server configuration"
         case .networkError(let error):
+            if let urlError = error as? URLError {
+                switch urlError.code {
+                case .notConnectedToInternet:
+                    return "No internet connection. Please check your network settings."
+                case .timedOut:
+                    return "Connection timed out. Please try again."
+                case .cannotFindHost:
+                    return "Cannot connect to server. Please check your internet connection."
+                case .cannotConnectToHost:
+                    return "Cannot connect to server. Please try again later."
+                case .secureConnectionFailed:
+                    return "Secure connection failed. Please try again."
+                default:
+                    return "Network error: \(urlError.localizedDescription)"
+                }
+            }
             return "Network error: \(error.localizedDescription)"
         case .invalidResponse:
             return "Invalid response from server"
@@ -30,9 +44,15 @@ enum APIError: Error {
         case .serverError(let message):
             return message
         case .unauthorized:
-            return "Unauthorized"
+            return "Unauthorized - Please check your credentials"
+        case .rateLimitExceeded:
+            return "Too many requests. Please wait a moment and try again."
+        case .redirectError:
+            return "Connection error. Please check your internet connection and try again."
+        case .connectionError:
+            return "Unable to connect to server. Please check your internet connection."
         case .unknown:
-            return "An unknown error occurred"
+            return "An unknown error occurred. Please try again."
         }
     }
 }
@@ -59,11 +79,119 @@ class APIService {
     static let shared = APIService()
     private let baseURL = "https://rickys.ddns.net/LocationApp/api"
     private var authToken: String?
+    private var lastRequestTime: Date?
+    private let minimumRequestInterval: TimeInterval = 1.0 // Minimum 1 second between requests
+    private let maxRetries = 3
+    private let retryDelay: TimeInterval = 2.0 // 2 seconds between retries
+    private let session: URLSession
     
-    private init() {}
+    private init() {
+        let configuration = URLSessionConfiguration.default
+        configuration.timeoutIntervalForRequest = 30
+        configuration.timeoutIntervalForResource = 300
+        configuration.httpMaximumConnectionsPerHost = 1
+        configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
+        
+        // Create a custom URLSession with the configuration
+        self.session = URLSession(configuration: configuration)
+    }
     
     func setAuthToken(_ token: String?) {
         self.authToken = token
+    }
+    
+    private func waitForRateLimit() async {
+        if let lastRequest = lastRequestTime {
+            let timeSinceLastRequest = Date().timeIntervalSince(lastRequest)
+            if timeSinceLastRequest < minimumRequestInterval {
+                try? await Task.sleep(nanoseconds: UInt64((minimumRequestInterval - timeSinceLastRequest) * 1_000_000_000))
+            }
+        }
+        lastRequestTime = Date()
+    }
+    
+    private func performRequest<T: Decodable>(_ request: URLRequest, retryCount: Int = 0) async throws -> T {
+        do {
+            await waitForRateLimit()
+            
+            print("Making request to: \(request.url?.absoluteString ?? "unknown")")
+            print("Request method: \(request.httpMethod ?? "unknown")")
+            print("Request headers: \(request.allHTTPHeaderFields ?? [:])")
+            if let body = request.httpBody {
+                print("Request body: \(String(data: body, encoding: .utf8) ?? "none")")
+            }
+            
+            let (data, response) = try await session.data(for: request)
+            
+            print("Response received for: \(request.url?.absoluteString ?? "unknown")")
+            print("Raw response data: \(String(data: data, encoding: .utf8) ?? "none")")
+            
+            guard let httpResponse = response as? HTTPURLResponse else {
+                print("Invalid response type received")
+                throw APIError.invalidResponse
+            }
+            
+            print("Response status code: \(httpResponse.statusCode)")
+            
+            // Handle redirects
+            if httpResponse.statusCode >= 300 && httpResponse.statusCode < 400 {
+                print("Received redirect response: \(httpResponse.statusCode)")
+                throw APIError.redirectError
+            }
+            
+            if httpResponse.statusCode == 429 { // Too Many Requests
+                print("Rate limit hit, attempt \(retryCount + 1) of \(maxRetries)")
+                if retryCount < maxRetries {
+                    let delay = retryDelay * Double(retryCount + 1)
+                    print("Waiting \(delay) seconds before retry")
+                    try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+                    return try await performRequest(request, retryCount: retryCount + 1)
+                }
+                print("Max retries reached, throwing rate limit error")
+                throw APIError.rateLimitExceeded
+            }
+            
+            if httpResponse.statusCode == 200 || httpResponse.statusCode == 201 {
+                do {
+                    let decodedResponse = try JSONDecoder().decode(T.self, from: data)
+                    print("Successfully decoded response")
+                    return decodedResponse
+                } catch {
+                    print("Failed to decode response: \(error)")
+                    print("Response data: \(String(data: data, encoding: .utf8) ?? "none")")
+                    throw APIError.decodingError(error)
+                }
+            } else if httpResponse.statusCode == 401 {
+                print("Unauthorized access")
+                throw APIError.unauthorized
+            } else {
+                do {
+                    let errorResponse = try JSONDecoder().decode(ErrorResponse.self, from: data)
+                    print("Server error: \(errorResponse.error)")
+                    throw APIError.serverError(errorResponse.error)
+                } catch {
+                    print("Failed to decode error response: \(error)")
+                    print("Error response data: \(String(data: data, encoding: .utf8) ?? "none")")
+                    throw APIError.serverError("Server error with status code: \(httpResponse.statusCode)")
+                }
+            }
+        } catch let error as APIError {
+            print("API Error occurred: \(error.localizedDescription)")
+            throw error
+        } catch let error as URLError {
+            print("URL Error occurred: \(error.localizedDescription)")
+            switch error.code {
+            case .notConnectedToInternet, .cannotFindHost, .cannotConnectToHost:
+                throw APIError.connectionError
+            case .httpTooManyRedirects:
+                throw APIError.redirectError
+            default:
+                throw APIError.networkError(error)
+            }
+        } catch {
+            print("Unexpected error occurred: \(error)")
+            throw APIError.networkError(error)
+        }
     }
     
     private func createRequest(path: String, method: String) throws -> URLRequest {
@@ -92,182 +220,42 @@ class APIService {
     // MARK: - Authentication
     
     func register(username: String, password: String) async throws -> String {
-        do {
-            var request = try createRequest(path: "/auth/register", method: "POST")
-        
+        var request = try createRequest(path: "/auth/register", method: "POST")
         let body = ["username": username, "password": password]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
-            
-            print("Registration Request URL: \(request.url?.absoluteString ?? "")")
-            print("Registration Request Headers: \(request.allHTTPHeaderFields ?? [:])")
-            print("Registration Request Body: \(String(data: request.httpBody ?? Data(), encoding: .utf8) ?? "")")
         
-        let (data, response) = try await URLSession.shared.data(for: request)
-            
-            print("Registration Response Data: \(String(data: data, encoding: .utf8) ?? "")")
-        
-        guard let httpResponse = response as? HTTPURLResponse else {
-                print("Invalid response type")
-            throw APIError.invalidResponse
-        }
-            
-            print("Registration Response Status: \(httpResponse.statusCode)")
-        
-        if httpResponse.statusCode == 201 {
-                do {
-            let result = try JSONDecoder().decode(RegisterResponse.self, from: data)
-            return result.message
-                } catch {
-                    print("Registration Decoding Error: \(error)")
-                    throw APIError.decodingError(error)
-                }
-        } else {
-                do {
-            let error = try JSONDecoder().decode(ErrorResponse.self, from: data)
-            throw APIError.serverError(error.error)
-                } catch {
-                    print("Registration Error Decoding Error: \(error)")
-                    throw APIError.decodingError(error)
-                }
-            }
-        } catch {
-            print("Registration Error: \(error)")
-            throw error
-        }
+        let response: RegisterResponse = try await performRequest(request)
+        return response.message
     }
     
     func login(username: String, password: String) async throws -> String {
-        do {
-            var request = try createRequest(path: "/auth/login", method: "POST")
-        
+        var request = try createRequest(path: "/auth/login", method: "POST")
         let body = ["username": username, "password": password]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
-            
-            print("Login Request URL: \(request.url?.absoluteString ?? "")")
-            print("Login Request Headers: \(request.allHTTPHeaderFields ?? [:])")
-            print("Login Request Body: \(String(data: request.httpBody ?? Data(), encoding: .utf8) ?? "")")
         
-        let (data, response) = try await URLSession.shared.data(for: request)
-            
-            print("Login Response Data: \(String(data: data, encoding: .utf8) ?? "")")
-        
-        guard let httpResponse = response as? HTTPURLResponse else {
-                print("Invalid response type")
-            throw APIError.invalidResponse
-        }
-            
-            print("Login Response Status: \(httpResponse.statusCode)")
-        
-        if httpResponse.statusCode == 200 {
-                do {
-            let result = try JSONDecoder().decode(LoginResponse.self, from: data)
-            return result.access_token
-                } catch {
-                    print("Login Decoding Error: \(error)")
-                    throw APIError.decodingError(error)
-                }
-        } else {
-                do {
-            let error = try JSONDecoder().decode(ErrorResponse.self, from: data)
-            throw APIError.serverError(error.error)
-                } catch {
-                    print("Login Error Decoding Error: \(error)")
-                    throw APIError.decodingError(error)
-                }
-            }
-        } catch {
-            print("Login Error: \(error)")
-            throw error
-        }
+        let response: LoginResponse = try await performRequest(request)
+        return response.access_token
     }
     
     // MARK: - Postcodes
     
     func getPostcodes() async throws -> [Postcode] {
-        print("APIService: Attempting to fetch postcodes")
         let request = try createRequest(path: "/postcodes", method: "GET")
-        
-        print("APIService: Request URL: \(request.url?.absoluteString ?? "nil")")
-        print("APIService: Request Headers: \(request.allHTTPHeaderFields ?? [:])")
-        
-        do {
-            let (data, response) = try await URLSession.shared.data(for: request)
-            
-            print("APIService: Response received")
-            print("APIService: Response Data: \(String(data: data, encoding: .utf8) ?? "")")
-        
-        guard let httpResponse = response as? HTTPURLResponse else {
-                print("APIService: Invalid response type")
-            throw APIError.invalidResponse
-        }
-            
-            print("APIService: Response Status Code: \(httpResponse.statusCode)")
-        
-        if httpResponse.statusCode == 200 {
-                do {
-                    let postcodes = try JSONDecoder().decode([Postcode].self, from: data)
-                    print("APIService: Successfully decoded \(postcodes.count) postcodes")
-                    return postcodes
-                } catch {
-                    print("APIService: Decoding error: \(error)")
-                    throw APIError.decodingError(error)
-                }
-        } else if httpResponse.statusCode == 401 {
-                print("APIService: Unauthorized error")
-            throw APIError.unauthorized
-        } else {
-                do {
-            let error = try JSONDecoder().decode(ErrorResponse.self, from: data)
-                    print("APIService: Server error: \(error.error)")
-            throw APIError.serverError(error.error)
-                } catch {
-                    print("APIService: Error decoding error response: \(error)")
-                    throw APIError.serverError("Unknown server error")
-                }
-            }
-        } catch let error as APIError {
-            print("APIService: API Error: \(error.localizedDescription)")
-            throw error
-        } catch {
-            print("APIService: Network Error: \(error.localizedDescription)")
-            throw APIError.networkError(error)
-        }
+        return try await performRequest(request)
     }
     
     func addPostcode(_ postcode: String, name: String) async throws -> Postcode {
         var request = try createRequest(path: "/postcodes", method: "POST")
-        
         let body = ["postcode": postcode, "name": name]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         
-        print("Add Postcode Request URL: \(request.url?.absoluteString ?? "")")
-        print("Add Postcode Request Headers: \(request.allHTTPHeaderFields ?? [:])")
-        print("Add Postcode Request Body: \(String(data: request.httpBody ?? Data(), encoding: .utf8) ?? "")")
-        
-        let (data, response) = try await URLSession.shared.data(for: request)
-        
-        print("Add Postcode Response Data: \(String(data: data, encoding: .utf8) ?? "")")
-        
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw APIError.invalidResponse
-        }
-        
-        print("Add Postcode Response Status: \(httpResponse.statusCode)")
-        
-        if httpResponse.statusCode == 201 {
-            return try JSONDecoder().decode(Postcode.self, from: data)
-        } else if httpResponse.statusCode == 401 {
-            throw APIError.unauthorized
-        } else {
-            let error = try JSONDecoder().decode(ErrorResponse.self, from: data)
-            throw APIError.serverError(error.error)
-        }
+        return try await performRequest(request)
     }
     
     func deletePostcode(id: Int) async throws {
         let request = try createRequest(path: "/postcodes/\(id)", method: "DELETE")
         
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
         
         guard let httpResponse = response as? HTTPURLResponse else {
             throw APIError.invalidResponse
@@ -294,7 +282,7 @@ class APIService {
         print("Get Postcode from Coords Request Headers: \(request.allHTTPHeaderFields ?? [:])")
         print("Get Postcode from Coords Request Body: \(String(data: request.httpBody ?? Data(), encoding: .utf8) ?? "")")
         
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
         
         // Log raw response data
         print("Get Postcode from Coords Raw Response: \(String(data: data, encoding: .utf8) ?? "")")
@@ -347,7 +335,7 @@ class APIService {
         
         print("Get Journeys Request URL: \(request.url?.absoluteString ?? "")")
         
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
         
         guard let httpResponse = response as? HTTPURLResponse else {
             throw APIError.invalidResponse
@@ -372,7 +360,7 @@ class APIService {
         print("Create Journey Request URL: \(request.url?.absoluteString ?? "")")
         print("Create Journey Request Body: \(String(data: request.httpBody ?? Data(), encoding: .utf8) ?? "")")
         
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
         
         // Log raw response data
         print("Create Journey Raw Response Data: \(String(data: data, encoding: .utf8) ?? "")")
@@ -402,7 +390,7 @@ class APIService {
         print("Create Manual Journey Request URL: \(request.url?.absoluteString ?? "")")
         print("Create Manual Journey Request Body: \(String(data: request.httpBody ?? Data(), encoding: .utf8) ?? "")")
         
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
         
         guard let httpResponse = response as? HTTPURLResponse else {
             throw APIError.invalidResponse
@@ -427,7 +415,7 @@ class APIService {
         print("Delete Journeys Request URL: \(request.url?.absoluteString ?? "")")
         print("Delete Journeys Request Body: \(String(data: request.httpBody ?? Data(), encoding: .utf8) ?? "")")
         
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
         
         guard let httpResponse = response as? HTTPURLResponse else {
             throw APIError.invalidResponse
@@ -456,7 +444,7 @@ class APIService {
         print("Export request headers: \(request.allHTTPHeaderFields ?? [:])")
         print("Export request body: \(String(data: request.httpBody ?? Data(), encoding: .utf8) ?? "none")")
         
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
         
         if let httpResponse = response as? HTTPURLResponse {
             print("Export response status code: \(httpResponse.statusCode)")
@@ -487,7 +475,7 @@ class APIService {
         print("Start Tracked Journey Request URL: \(request.url?.absoluteString ?? "")")
         print("Start Tracked Journey Request Body: \(String(data: request.httpBody ?? Data(), encoding: .utf8) ?? "")")
         
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
         
         print("Start Tracked Journey Raw Response Data: \(String(data: data, encoding: .utf8) ?? "")")
         
@@ -521,7 +509,7 @@ class APIService {
         print("End Tracked Journey Request URL: \(request.url?.absoluteString ?? "")")
         print("End Tracked Journey Request Body: \(String(data: request.httpBody ?? Data(), encoding: .utf8) ?? "")")
         
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
         
         print("End Tracked Journey Raw Response Data: \(String(data: data, encoding: .utf8) ?? "")")
         
