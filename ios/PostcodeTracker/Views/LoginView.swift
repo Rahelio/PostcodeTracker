@@ -15,27 +15,40 @@ struct LoginView: View {
     
     var body: some View {
         NavigationView {
-            VStack(spacing: 20) {
+            VStack(spacing: 30) {
                 // Logo or App Name
-                VStack(spacing: 10) {
+                VStack(spacing: 15) {
                     Image(systemName: "map.fill")
-                        .font(.system(size: 60))
-                        .foregroundColor(.blue)
+                        .font(.system(size: 70))
+                        .foregroundColor(.accentColor)
                     Text("Postcode Tracker")
-                        .font(.title)
-                        .fontWeight(.bold)
+                        .playfairDisplay(.largeTitle)
+                        .foregroundColor(.primary)
                 }
+                .padding(.top, 60)
                 .padding(.bottom, 40)
                 
                 // Login Form
-                VStack(spacing: 15) {
-                    TextField("Username", text: $username)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
-                        .autocapitalization(.none)
-                        .disableAutocorrection(true)
+                VStack(spacing: 20) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Username")
+                            .playfairDisplay(.subheadline)
+                            .foregroundColor(.secondary)
+                        TextField("", text: $username)
+                            .textFieldStyle(CustomTextFieldStyle())
+                            .autocapitalization(.none)
+                            .disableAutocorrection(true)
+                            .playfairDisplay(.body)
+                    }
                     
-                    SecureField("Password", text: $password)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Password")
+                            .playfairDisplay(.subheadline)
+                            .foregroundColor(.secondary)
+                        SecureField("", text: $password)
+                            .textFieldStyle(CustomTextFieldStyle())
+                            .playfairDisplay(.body)
+                    }
                     
                     Button(action: {
                         if isRegistering {
@@ -49,24 +62,29 @@ struct LoginView: View {
                                 .progressViewStyle(CircularProgressViewStyle(tint: .white))
                         } else {
                             Text(isRegistering ? "Register" : "Login")
+                                .playfairDisplay(.headline)
                                 .frame(maxWidth: .infinity)
                         }
                     }
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(Color.blue)
+                    .background(Color.accentColor)
                     .foregroundColor(.white)
-                    .cornerRadius(10)
+                    .cornerRadius(16)
+                    .shadow(color: Color.accentColor.opacity(0.3), radius: 5, x: 0, y: 3)
                     .disabled(username.isEmpty || password.isEmpty || isLoading)
                     
                     Button(action: {
-                        isRegistering.toggle()
+                        withAnimation {
+                            isRegistering.toggle()
+                        }
                     }) {
                         Text(isRegistering ? "Already have an account? Login" : "Don't have an account? Register")
-                            .foregroundColor(.blue)
+                            .playfairDisplay(.subheadline)
+                            .foregroundColor(.accentColor)
                     }
                 }
-                .padding(.horizontal)
+                .padding(.horizontal, 30)
             }
             .padding()
             .navigationBarHidden(true)
@@ -74,6 +92,7 @@ struct LoginView: View {
                 Button("OK", role: .cancel) { }
             } message: {
                 Text(alertMessage)
+                    .playfairDisplay(.body)
             }
         }
     }
@@ -121,6 +140,16 @@ struct LoginView: View {
                 isLoading = false
             }
         }
+    }
+}
+
+struct CustomTextFieldStyle: TextFieldStyle {
+    func _body(configuration: TextField<Self._Label>) -> some View {
+        configuration
+            .padding()
+            .background(Color(.systemBackground))
+            .cornerRadius(12)
+            .shadow(color: Color.black.opacity(0.05), radius: 2, x: 0, y: 1)
     }
 }
 

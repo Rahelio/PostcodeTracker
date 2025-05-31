@@ -6,6 +6,10 @@ struct PostcodeTextField: ViewModifier {
     func body(content: Content) -> some View {
         content
             .textInputAutocapitalization(.characters)
+            .padding()
+            .background(Color(.systemBackground))
+            .cornerRadius(12)
+            .shadow(color: Color.black.opacity(0.05), radius: 2, x: 0, y: 1)
             .onChange(of: text) { newValue in
                 // Convert to uppercase and remove any existing spaces
                 let cleaned = newValue.uppercased().replacingOccurrences(of: " ", with: "")
@@ -45,11 +49,16 @@ struct PostcodeListView: View {
                 onDelete: deletePostcode
             )
             .navigationTitle("Postcodes")
+            .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 Button(action: {
-                    showingAddPostcode = true
+                    withAnimation {
+                        showingAddPostcode = true
+                    }
                 }) {
-                    Image(systemName: "plus")
+                    Image(systemName: "plus.circle.fill")
+                        .font(.title2)
+                        .foregroundColor(.accentColor)
                 }
             }
             .sheet(isPresented: $showingAddPostcode) {
@@ -58,9 +67,11 @@ struct PostcodeListView: View {
                     newName: $newName,
                     onAdd: addPostcode,
                     onCancel: {
-                        showingAddPostcode = false
-                        newPostcode = ""
-                        newName = ""
+                        withAnimation {
+                            showingAddPostcode = false
+                            newPostcode = ""
+                            newName = ""
+                        }
                     }
                 )
             }
@@ -135,13 +146,32 @@ struct PostcodeListContentView: View {
         Group {
             if isLoading {
                 ProgressView()
+                    .scaleEffect(1.5)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if postcodes.isEmpty {
+                VStack(spacing: 20) {
+                    Image(systemName: "mappin.and.ellipse")
+                        .font(.system(size: 60))
+                        .foregroundColor(.secondary)
+                    Text("No Postcodes Added")
+                        .playfairDisplay(.title2)
+                        .foregroundColor(.primary)
+                    Text("Tap + to add your first postcode")
+                        .playfairDisplay(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 List {
                     ForEach(postcodes) { postcode in
                         PostcodeRow(postcode: postcode)
+                            .listRowBackground(Color(.systemBackground))
+                            .listRowSeparator(.hidden)
+                            .padding(.vertical, 4)
                     }
                     .onDelete(perform: onDelete)
                 }
+                .listStyle(.plain)
             }
         }
     }
@@ -151,18 +181,33 @@ struct PostcodeRow: View {
     let postcode: Postcode
     
     var body: some View {
-        VStack(alignment: .leading) {
-            Text(postcode.name)
-                .font(.headline)
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: "mappin.circle.fill")
+                    .foregroundColor(.accentColor)
+                Text(postcode.name)
+                    .playfairDisplay(.headline)
+            }
+            
             Text(postcode.postcode)
-                .font(.subheadline)
-                .foregroundColor(.gray)
+                .playfairDisplay(.subheadline)
+                .foregroundColor(.secondary)
+            
             if let lat = postcode.latitude, let lon = postcode.longitude {
-                Text("Location: \(String(format: "%.4f, %.4f", lat, lon))")
-                    .font(.caption)
-                    .foregroundColor(.gray)
+                HStack {
+                    Image(systemName: "location.fill")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Text("\(String(format: "%.4f, %.4f", lat, lon))")
+                        .playfairDisplay(.caption)
+                        .foregroundColor(.secondary)
+                }
             }
         }
+        .padding()
+        .background(Color(.systemBackground))
+        .cornerRadius(16)
+        .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
     }
 }
 
@@ -175,19 +220,32 @@ struct AddPostcodeView: View {
     var body: some View {
         NavigationView {
             Form {
-                Section(header: Text("Postcode Details")) {
+                Section {
                     TextField("Postcode", text: $newPostcode)
                         .postcodeInput($newPostcode)
+                        .playfairDisplay(.body)
                     TextField("Name (optional)", text: $newName)
+                        .playfairDisplay(.body)
+                } header: {
+                    Text("Postcode Details")
+                        .playfairDisplay(.headline)
+                } footer: {
+                    Text("Enter a UK postcode and optionally give it a name for easy reference.")
+                        .playfairDisplay(.subheadline)
                 }
             }
             .navigationTitle("Add Postcode")
+            .navigationBarTitleDisplayMode(.large)
             .navigationBarItems(
-                leading: Button("Cancel", action: onCancel),
-                trailing: Button("Add", action: {
+                leading: Button("Cancel", action: onCancel)
+                    .playfairDisplay(.body)
+                    .foregroundColor(.accentColor),
+                trailing: Button("Add") {
                     Task { await onAdd() }
-                })
+                }
+                .playfairDisplay(.body)
                 .disabled(newPostcode.isEmpty)
+                .foregroundColor(newPostcode.isEmpty ? .gray : .accentColor)
             )
         }
     }

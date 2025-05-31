@@ -31,5 +31,10 @@
 		<string>location</string>
 		<string>processing</string>
 	</array>
+	<key>UIAppFonts</key>
+	<array>
+		<string>Resources/Fonts/PlayfairDisplay-Regular.ttf</string>
+		<string>Resources/Fonts/PlayfairDisplay-Bold.ttf</string>
+	</array>
 </dict>
 </plist>

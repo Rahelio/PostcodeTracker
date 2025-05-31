@@ -148,7 +148,7 @@ struct JourneyTrackerView: View {
     @State private var manualStartPostcode = ""
     @State private var manualEndPostcode = ""
     @State private var backgroundTask: UIBackgroundTaskIdentifier = .invalid
-    @State private var currentJourneyId: Int? // State variable to hold journey ID
+    @State private var currentJourneyId: Int?
     
     var body: some View {
         NavigationView {
@@ -168,8 +168,7 @@ struct JourneyTrackerView: View {
                                 .symbolEffect(.bounce, options: .repeating, value: isRecording)
                             
                             Text(isRecording ? "Journey in Progress" : "Ready to Start")
-                                .font(.title2)
-                                .fontWeight(.bold)
+                                .playfairDisplay(.title2)
                                 .foregroundColor(isRecording ? .red : .green)
                         }
                         .frame(maxWidth: .infinity)
@@ -180,12 +179,13 @@ struct JourneyTrackerView: View {
                                 HStack {
                                     Image(systemName: "play.fill")
                                     Text("Start Journey")
+                                        .playfairDisplay(.headline)
                                 }
                                 .frame(maxWidth: .infinity)
                                 .padding()
                                 .background(Color.green)
                                 .foregroundColor(.white)
-                                .cornerRadius(15)
+                                .cornerRadius(16)
                                 .shadow(color: Color.green.opacity(0.3), radius: 5, x: 0, y: 3)
                             }
                             .padding(.horizontal, 40)
@@ -194,12 +194,13 @@ struct JourneyTrackerView: View {
                                 HStack {
                                     Image(systemName: "stop.fill")
                                     Text("End Journey")
+                                        .playfairDisplay(.headline)
                                 }
                                 .frame(maxWidth: .infinity)
                                 .padding()
                                 .background(Color.red)
                                 .foregroundColor(.white)
-                                .cornerRadius(15)
+                                .cornerRadius(16)
                                 .shadow(color: Color.red.opacity(0.3), radius: 5, x: 0, y: 3)
                             }
                             .padding(.horizontal, 40)
@@ -246,77 +247,31 @@ struct JourneyTrackerView: View {
                             if let distance = distance {
                                 VStack(spacing: 8) {
                                     Text("Distance")
-                                        .font(.headline)
+                                        .playfairDisplay(.headline)
                                         .foregroundColor(.secondary)
-                                    Text(String(format: "%.1f miles", distance))
-                                        .font(.title)
-                                        .fontWeight(.bold)
-                                        .foregroundColor(.blue)
+                                    Text(String(format: "%.2f km", distance))
+                                        .playfairDisplay(.title2)
+                                        .foregroundColor(.primary)
                                 }
                                 .frame(maxWidth: .infinity)
                                 .padding()
-                                .background(Color(.systemGray6))
-                                .cornerRadius(15)
+                                .background(Color(.systemBackground))
+                                .cornerRadius(16)
+                                .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
                             }
                         }
-                        .padding()
-                        .background(
-                            RoundedRectangle(cornerRadius: 20)
-                                .fill(Color(.systemBackground))
-                                .shadow(color: Color.black.opacity(0.1), radius: 10, x: 0, y: 5)
-                        )
-                        .padding(.horizontal)
-                    }
-                    
-                    // Manual Entry Section
-                    if isManualEntry {
-                        VStack(spacing: 20) {
-                            TextField("Start Postcode", text: $manualStartPostcode)
-                                .postcodeInput($manualStartPostcode)
-                                .textFieldStyle(RoundedBorderTextFieldStyle())
-                                .autocapitalization(.allCharacters)
-                                .disableAutocorrection(true)
-                                .padding(.horizontal)
-                            
-                            TextField("End Postcode", text: $manualEndPostcode)
-                                .postcodeInput($manualEndPostcode)
-                                .textFieldStyle(RoundedBorderTextFieldStyle())
-                                .autocapitalization(.allCharacters)
-                                .disableAutocorrection(true)
-                                .padding(.horizontal)
-                            
-                            Button(action: createManualJourney) {
-                                HStack {
-                                    Image(systemName: "plus.circle.fill")
-                                    Text("Create Manual Journey")
-                                }
-                                .frame(maxWidth: .infinity)
-                                .padding()
-                                .background(Color.blue)
-                                .foregroundColor(.white)
-                                .cornerRadius(15)
-                                .shadow(color: Color.blue.opacity(0.3), radius: 5, x: 0, y: 3)
-                            }
-                            .disabled(manualStartPostcode.isEmpty || manualEndPostcode.isEmpty)
-                            .padding(.horizontal)
-                        }
-                        .padding(.vertical)
-                        .background(
-                            RoundedRectangle(cornerRadius: 20)
-                                .fill(Color(.systemBackground))
-                                .shadow(color: Color.black.opacity(0.1), radius: 10, x: 0, y: 5)
-                        )
                         .padding(.horizontal)
                     }
                 }
                 .padding(.vertical)
             }
-            .background(Color(.systemGroupedBackground))
             .navigationTitle("Track Journey")
-            .alert("Journey Update", isPresented: $showingAlert) {
+            .navigationBarTitleDisplayMode(.large)
+            .alert("Journey", isPresented: $showingAlert) {
                 Button("OK", role: .cancel) { }
             } message: {
                 Text(alertMessage)
+                    .playfairDisplay(.body)
             }
             .onAppear {
                 locationManager.startUpdatingLocation()
@@ -524,29 +479,37 @@ struct LocationCard: View {
     let longitude: Double?
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 12) {
             Text(title)
-                .font(.headline)
+                .playfairDisplay(.headline)
                 .foregroundColor(.secondary)
             
-            Text(name)
-                .font(.title3)
-                .fontWeight(.semibold)
-            
-            Text(postcode)
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-            
-            if let lat = latitude, let lon = longitude {
-                Text("Location: \(String(format: "%.4f, %.4f", lat, lon))")
-                    .font(.caption)
+            VStack(alignment: .leading, spacing: 8) {
+                Text(name)
+                    .playfairDisplay(.title3)
+                    .foregroundColor(.primary)
+                
+                Text(postcode)
+                    .playfairDisplay(.subheadline)
                     .foregroundColor(.secondary)
+                
+                if let lat = latitude, let lon = longitude {
+                    HStack {
+                        Image(systemName: "location.fill")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Text("\(String(format: "%.4f, %.4f", lat, lon))")
+                            .playfairDisplay(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding()
-        .background(Color(.systemGray6))
-        .cornerRadius(15)
+        .background(Color(.systemBackground))
+        .cornerRadius(16)
+        .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
     }
 }
 
