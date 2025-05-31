@@ -245,6 +245,17 @@ def get_postcode_from_coordinates():
 def delete_journeys():
     """API endpoint to delete selected journeys."""
     try:
+        # Get the JWT token from the Authorization header
+        auth_header = request.headers.get('Authorization')
+        if not auth_header or not auth_header.startswith('Bearer '):
+            return jsonify({'error': 'Missing or invalid authorization token'}), 401
+            
+        token = auth_header.split(' ')[1]
+        try:
+            payload = jwt.decode(token, app.config['JWT_SECRET_KEY'], algorithms=['HS256'])
+        except jwt.InvalidTokenError:
+            return jsonify({'error': 'Invalid token'}), 401
+            
         data = request.get_json()
         journey_ids = data.get('journey_ids', [])
         
@@ -262,14 +273,22 @@ def delete_journeys():
                 }), 400
                 
             # Delete the journeys
-            deleted_count = Journey.query.filter(Journey.id.in_(journey_ids)).delete(synchronize_session=False)
-            db.session.commit()
-            
-            return jsonify({
-                'success': True,
-                'message': f'Successfully deleted {deleted_count} journeys',
-                'deleted_count': deleted_count
-            })
+            try:
+                deleted_count = Journey.query.filter(Journey.id.in_(journey_ids)).delete(synchronize_session=False)
+                db.session.commit()
+                
+                return jsonify({
+                    'success': True,
+                    'message': f'Successfully deleted {deleted_count} journeys',
+                    'deleted_count': deleted_count
+                })
+            except Exception as e:
+                logger.error(f"Database error while deleting journeys: {e}")
+                db.session.rollback()
+                return jsonify({
+                    'success': False,
+                    'message': 'Error deleting journeys. Please try again.'
+                }), 500
         else:
             return jsonify({
                 'success': False,
