@@ -75,6 +75,18 @@ struct StartJourneyResponse: Codable {
     let journey_id: Int
 }
 
+// Add response wrapper structs
+struct JourneyResponse: Codable {
+    let success: Bool
+    let journeys: [Journey]
+}
+
+struct EndJourneyResponse: Codable {
+    let success: Bool
+    let message: String
+    let journey: Journey
+}
+
 // Custom URLSession delegate to handle redirects
 class CustomURLSessionDelegate: NSObject, URLSessionTaskDelegate {
     func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse, newRequest request: URLRequest, completionHandler: @escaping (URLRequest?) -> Void) {
@@ -274,18 +286,42 @@ class APIService {
     func deletePostcode(id: Int) async throws {
         let request = try createRequest(path: "/postcodes/\(id)", method: "DELETE")
         
+        print("Delete Postcode Request URL: \(request.url?.absoluteString ?? "")")
+        
         let (data, response) = try await session.data(for: request)
         
+        // Log raw response data
+        print("Delete Postcode Raw Response Data: \(String(data: data, encoding: .utf8) ?? "")")
+        
         guard let httpResponse = response as? HTTPURLResponse else {
+            print("Delete Postcode: Invalid response type")
             throw APIError.invalidResponse
         }
         
-        if httpResponse.statusCode != 200 {
-            if httpResponse.statusCode == 401 {
-                throw APIError.unauthorized
-            } else {
+        print("Delete Postcode Response Status: \(httpResponse.statusCode)")
+        
+        if httpResponse.statusCode == 200 {
+            print("Successfully deleted postcode with ID: \(id)")
+            return
+        } else if httpResponse.statusCode == 401 {
+            throw APIError.unauthorized
+        } else if httpResponse.statusCode == 400 {
+            // Try to decode the error message
+            if let errorResponse = try? JSONDecoder().decode(ErrorResponse.self, from: data) {
+                throw APIError.serverError(errorResponse.error)
+            }
+            throw APIError.serverError("Cannot delete postcode that is used in journeys")
+        } else if httpResponse.statusCode == 404 {
+            throw APIError.serverError("Postcode not found")
+        } else {
+            do {
                 let error = try JSONDecoder().decode(ErrorResponse.self, from: data)
+                print("Server error response: \(error.error)")
                 throw APIError.serverError(error.error)
+            } catch {
+                print("Failed to decode error response: \(error)")
+                print("Error response data: \(String(data: data, encoding: .utf8) ?? "")")
+                throw APIError.serverError("Unknown server error: \(httpResponse.statusCode)")
             }
         }
     }
@@ -361,7 +397,8 @@ class APIService {
         }
         
         if httpResponse.statusCode == 200 {
-            return try JSONDecoder().decode([Journey].self, from: data)
+            let response = try JSONDecoder().decode(JourneyResponse.self, from: data)
+            return response.journeys
         } else if httpResponse.statusCode == 401 {
             throw APIError.unauthorized
         } else {
@@ -400,10 +437,41 @@ class APIService {
         }
     }
     
+    // Add this new method to get a postcode by its code
+    func getPostcodeByCode(_ postcode: String) async throws -> Postcode? {
+        let request = try createRequest(path: "/postcodes", method: "GET")
+        let postcodes: [Postcode] = try await performRequest(request)
+        return postcodes.first { $0.postcode == postcode }
+    }
+    
     func createManualJourney(startPostcode: String, endPostcode: String) async throws -> Journey {
-        var request = try createRequest(path: "/journeys/manual", method: "POST")
+        // First, check if the postcodes already exist
+        let startLocation: Postcode
+        if let existing = try await getPostcodeByCode(startPostcode) {
+            print("Using existing start location with ID: \(existing.id)")
+            startLocation = existing
+        } else {
+            print("Creating new start location")
+            startLocation = try await addPostcode(startPostcode, name: "Start: \(startPostcode)")
+        }
         
-        let body = ["start_postcode": startPostcode, "end_postcode": endPostcode]
+        let endLocation: Postcode
+        if let existing = try await getPostcodeByCode(endPostcode) {
+            print("Using existing end location with ID: \(existing.id)")
+            endLocation = existing
+        } else {
+            print("Creating new end location")
+            endLocation = try await addPostcode(endPostcode, name: "End: \(endPostcode)")
+        }
+        
+        // Now create the journey using the location IDs
+        var request = try createRequest(path: "/journey/manual", method: "POST")
+        
+        let body = [
+            "start_location_id": startLocation.id,
+            "end_location_id": endLocation.id
+        ] as [String : Any]
+        
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         
         print("Create Manual Journey Request URL: \(request.url?.absoluteString ?? "")")
@@ -411,17 +479,38 @@ class APIService {
         
         let (data, response) = try await session.data(for: request)
         
+        // Log raw response data
+        print("Create Manual Journey Raw Response Data: \(String(data: data, encoding: .utf8) ?? "")")
+        
         guard let httpResponse = response as? HTTPURLResponse else {
+            print("Create Manual Journey: Invalid response type")
             throw APIError.invalidResponse
         }
         
-        if httpResponse.statusCode == 201 {
-            return try JSONDecoder().decode(Journey.self, from: data)
+        print("Create Manual Journey Response Status: \(httpResponse.statusCode)")
+        
+        if httpResponse.statusCode == 200 || httpResponse.statusCode == 201 {
+            do {
+                let response = try JSONDecoder().decode(EndJourneyResponse.self, from: data)
+                print("Successfully decoded journey response")
+                return response.journey
+            } catch {
+                print("Failed to decode journey response: \(error)")
+                print("Response data: \(String(data: data, encoding: .utf8) ?? "")")
+                throw APIError.decodingError(error)
+            }
         } else if httpResponse.statusCode == 401 {
             throw APIError.unauthorized
         } else {
-            let error = try JSONDecoder().decode(ErrorResponse.self, from: data)
-            throw APIError.serverError(error.error)
+            do {
+                let error = try JSONDecoder().decode(ErrorResponse.self, from: data)
+                print("Server error response: \(error.error)")
+                throw APIError.serverError(error.error)
+            } catch {
+                print("Failed to decode error response: \(error)")
+                print("Error response data: \(String(data: data, encoding: .utf8) ?? "")")
+                throw APIError.serverError("Unknown server error: \(httpResponse.statusCode)")
+            }
         }
     }
     
@@ -520,9 +609,15 @@ class APIService {
     
     // Function to end a tracked journey
     func endTrackedJourney(journeyId: Int, latitude: Double, longitude: Double) async throws -> Journey {
+        // First, get the postcode from coordinates
+        guard let postcode = try await getPostcodeFromCoordinates(latitude: latitude, longitude: longitude) else {
+            throw APIError.serverError("Could not determine postcode for the provided coordinates")
+        }
+        
+        // Now end the journey with the postcode
         var request = try createRequest(path: "/journey/end", method: "POST")
         
-        let body = ["journey_id": journeyId, "latitude": latitude, "longitude": longitude] as [String : Any]
+        let body = ["end_postcode": postcode.postcode] as [String : Any]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         
         print("End Tracked Journey Request URL: \(request.url?.absoluteString ?? "")")
@@ -539,8 +634,8 @@ class APIService {
         print("End Tracked Journey Response Status: \(httpResponse.statusCode)")
         
         if httpResponse.statusCode == 200 {
-            let journey = try JSONDecoder().decode(Journey.self, from: data)
-            return journey
+            let response = try JSONDecoder().decode(EndJourneyResponse.self, from: data)
+            return response.journey
         } else if httpResponse.statusCode == 401 {
             throw APIError.unauthorized
         } else if httpResponse.statusCode == 404 {

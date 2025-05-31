@@ -123,16 +123,26 @@ def calculate_postcode_distance():
 @jwt_required()
 def delete_postcode(postcode_id):
     try:
-    db = next(get_db())
-    
+        db = next(get_db())
+        
         postcode = db.query(Postcode).filter_by(id=postcode_id).first()
-    if not postcode:
-        return jsonify({'error': 'Postcode not found'}), 404
-    
-    db.delete(postcode)
-    db.commit()
-    
-    return jsonify({'message': 'Postcode deleted successfully'}), 200 
+        if not postcode:
+            return jsonify({'error': 'Postcode not found'}), 404
+            
+        # Check if postcode is used in any journeys
+        from server.models.journey import Journey
+        journeys_start = db.query(Journey).filter_by(start_location_id=postcode_id).count()
+        journeys_end = db.query(Journey).filter_by(end_location_id=postcode_id).count()
+        
+        if journeys_start > 0 or journeys_end > 0:
+            return jsonify({
+                'error': f'Cannot delete postcode that is used in {journeys_start + journeys_end} journeys'
+            }), 400
+        
+        db.delete(postcode)
+        db.commit()
+        
+        return jsonify({'message': 'Postcode deleted successfully'}), 200
     except Exception as e:
         logging.error(f"Error deleting postcode: {str(e)}")
         return jsonify({'error': 'Server error'}), 500 
