@@ -7,9 +7,9 @@ struct PostcodeTextField: ViewModifier {
         content
             .textInputAutocapitalization(.characters)
             .padding()
-            .background(Color(.systemBackground))
-            .cornerRadius(12)
-            .shadow(color: Color.black.opacity(0.05), radius: 2, x: 0, y: 1)
+            .background(Color(.secondarySystemBackground))
+            .cornerRadius(10)
+            .foregroundColor(.primary)
             .onChange(of: text) { newValue in
                 // Convert to uppercase and remove any existing spaces
                 let cleaned = newValue.uppercased().replacingOccurrences(of: " ", with: "")
@@ -43,11 +43,15 @@ struct PostcodeListView: View {
     
     var body: some View {
         NavigationView {
-            PostcodeListContentView(
-                postcodes: postcodes,
-                isLoading: isLoading,
-                onDelete: deletePostcode
-            )
+            ZStack {
+                Color(.systemBackground).ignoresSafeArea()
+                
+                PostcodeListContentView(
+                    postcodes: postcodes,
+                    isLoading: isLoading,
+                    onDelete: deletePostcode
+                )
+            }
             .navigationTitle("Postcodes")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
@@ -58,7 +62,7 @@ struct PostcodeListView: View {
                 }) {
                     Image(systemName: "plus.circle.fill")
                         .font(.title2)
-                        .foregroundColor(.accentColor)
+                        .foregroundColor(.primary)
                 }
             }
             .sheet(isPresented: $showingAddPostcode) {
@@ -82,12 +86,15 @@ struct PostcodeListView: View {
             } message: {
                 if let errorMessage = errorMessage {
                     Text(errorMessage)
+                        .playfairDisplay(.body)
+                        .foregroundColor(.primary)
                 }
             }
             .task {
                 await loadPostcodes()
             }
         }
+        .navigationViewStyle(.stack)
     }
     
     private func loadPostcodes() async {
@@ -148,6 +155,7 @@ struct PostcodeListContentView: View {
                 ProgressView()
                     .scaleEffect(1.5)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .foregroundColor(.primary)
             } else if postcodes.isEmpty {
                 VStack(spacing: 20) {
                     Image(systemName: "mappin.and.ellipse")
@@ -172,6 +180,8 @@ struct PostcodeListContentView: View {
                     .onDelete(perform: onDelete)
                 }
                 .listStyle(.plain)
+                .background(Color(.systemBackground))
+                .scrollContentBackground(.hidden)
             }
         }
     }
@@ -187,6 +197,7 @@ struct PostcodeRow: View {
                     .foregroundColor(.accentColor)
                 Text(postcode.name)
                     .playfairDisplay(.headline)
+                    .foregroundColor(.primary)
             }
             
             Text(postcode.postcode)
@@ -205,9 +216,9 @@ struct PostcodeRow: View {
             }
         }
         .padding()
-        .background(Color(.systemBackground))
-        .cornerRadius(16)
-        .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
+        .background(Color(.secondarySystemBackground))
+        .cornerRadius(12)
+        .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
     }
 }
 
@@ -219,34 +230,44 @@ struct AddPostcodeView: View {
     
     var body: some View {
         NavigationView {
-            Form {
-                Section {
-                    TextField("Postcode", text: $newPostcode)
-                        .postcodeInput($newPostcode)
-                        .playfairDisplay(.body)
-                    TextField("Name (optional)", text: $newName)
-                        .playfairDisplay(.body)
-                } header: {
-                    Text("Postcode Details")
-                        .playfairDisplay(.headline)
-                } footer: {
-                    Text("Enter a UK postcode and optionally give it a name for easy reference.")
-                        .playfairDisplay(.subheadline)
+            ZStack {
+                Color(.systemBackground).ignoresSafeArea()
+                
+                Form {
+                    Section {
+                        TextField("Postcode", text: $newPostcode)
+                            .postcodeInput($newPostcode)
+                            .playfairDisplay(.body)
+                            .foregroundColor(.primary)
+                        TextField("Name (optional)", text: $newName)
+                            .playfairDisplay(.body)
+                            .foregroundColor(.primary)
+                    } header: {
+                        Text("Postcode Details")
+                            .playfairDisplay(.headline)
+                            .foregroundColor(.primary)
+                    } footer: {
+                        Text("Enter a UK postcode and optionally give it a name for easy reference.")
+                            .playfairDisplay(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
                 }
+                .scrollContentBackground(.hidden)
             }
             .navigationTitle("Add Postcode")
             .navigationBarTitleDisplayMode(.large)
             .navigationBarItems(
                 leading: Button("Cancel", action: onCancel)
                     .playfairDisplay(.body)
-                    .foregroundColor(.accentColor),
+                    .foregroundColor(.primary),
                 trailing: Button("Add") {
                     Task { await onAdd() }
                 }
                 .playfairDisplay(.body)
                 .disabled(newPostcode.isEmpty)
-                .foregroundColor(newPostcode.isEmpty ? .gray : .accentColor)
+                .foregroundColor(newPostcode.isEmpty ? .gray : .primary)
             )
+            .navigationViewStyle(.stack)
         }
     }
 }

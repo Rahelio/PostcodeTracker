@@ -5,7 +5,7 @@ struct JourneysView: View {
     @State private var journeys: [Journey] = []
     @State private var isLoading = false
     @State private var showingAlert = false
-    @State private var alertMessage = ""
+    @State private var alertMessage: String? = nil
     @State private var selectedJourneys: Set<Int> = []
     @State private var isEditing = false
     @State private var showingManualJourneySheet = false
@@ -48,32 +48,95 @@ struct JourneysView: View {
     
     var body: some View {
         NavigationView {
-            JourneysList(
-                groupedJourneys: groupedJourneys,
-                selectedJourneys: $selectedJourneys,
-                isEditing: $isEditing,
-                isLoading: isLoading,
-                showingAlert: $showingAlert,
-                alertMessage: $alertMessage,
-                showingManualJourneySheet: $showingManualJourneySheet,
-                showingExportSheet: $showingExportSheet,
-                exportFormat: $exportFormat,
-                postcodes: postcodes,
-                onJourneyCreated: { newJourney in
-                    journeys.insert(newJourney, at: 0)
-                },
-                onExport: exportJourneys,
-                onDelete: deleteSelectedJourneys
-            )
+            ZStack {
+                Color(.systemBackground).ignoresSafeArea()
+                
+                JourneysList(
+                    groupedJourneys: groupedJourneys,
+                    selectedJourneys: $selectedJourneys,
+                    isEditing: $isEditing,
+                    isLoading: isLoading,
+                    showingAlert: $showingAlert,
+                    alertMessage: $alertMessage,
+                    showingManualJourneySheet: $showingManualJourneySheet,
+                    showingExportSheet: $showingExportSheet,
+                    exportFormat: $exportFormat,
+                    postcodes: postcodes,
+                    onJourneyCreated: { newJourney in
+                        journeys.insert(newJourney, at: 0)
+                    },
+                    onExport: exportJourneys,
+                    onDelete: deleteSelectedJourneys
+                )
+            }
+            .navigationTitle("Journeys")
+            .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    if isEditing {
+                        Button("Done") {
+                            isEditing = false
+                            selectedJourneys.removeAll()
+                        }
+                        .foregroundColor(.primary)
+                    }
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    HStack {
+                        if !selectedJourneys.isEmpty {
+                            Button(action: {
+                                showingExportSheet = true
+                            }) {
+                                Image(systemName: "square.and.arrow.up")
+                            }
+                        }
+                        Button(action: {
+                            withAnimation {
+                                isEditing.toggle()
+                                selectedJourneys.removeAll()
+                            }
+                        }) {
+                            Text(isEditing ? "Cancel" : "Select")
+                        }
+                        .foregroundColor(.primary)
+                        Button(action: {
+                             showingManualJourneySheet = true
+                        }) {
+                            Image(systemName: "plus.circle.fill")
+                                .font(.title2)
+                        }
+                    }
+                    .foregroundColor(.primary)
+                }
+            }
+            .alert("Journey", isPresented: $showingAlert) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text(alertMessage ?? "")
+                    .playfairDisplay(.body)
+                    .foregroundColor(.primary)
+            }
+            .sheet(isPresented: $showingManualJourneySheet) {
+                 AddManualJourneyView(onJourneyCreated: { newJourney in
+                     journeys.insert(newJourney, at: 0)
+                 })
+             }
+             .sheet(isPresented: $showingExportSheet) {
+                 ExportOptionsView(
+                     exportFormat: $exportFormat,
+                     onExport: exportJourneys
+                 )
+             }
+             .sheet(isPresented: $showingShareSheet) {
+                if let url = shareURL {
+                    ShareSheet(activityItems: [url])
+                }
+            }
         }
+        .navigationViewStyle(.stack)
         .onAppear {
             loadJourneys()
             loadPostcodes()
-        }
-        .sheet(isPresented: $showingShareSheet) {
-            if let url = shareURL {
-                ShareSheet(activityItems: [url])
-            }
         }
     }
     
@@ -270,7 +333,7 @@ struct JourneysList: View {
     @Binding var isEditing: Bool
     let isLoading: Bool
     @Binding var showingAlert: Bool
-    @Binding var alertMessage: String
+    @Binding var alertMessage: String?
     @Binding var showingManualJourneySheet: Bool
     @Binding var showingExportSheet: Bool
     @Binding var exportFormat: JourneysView.ExportFormat
@@ -280,192 +343,90 @@ struct JourneysList: View {
     let onDelete: () -> Void
     
     var body: some View {
-        JourneysListContent(
-            groupedJourneys: groupedJourneys,
-            selectedJourneys: $selectedJourneys,
-            isEditing: isEditing
-        )
-        .navigationTitle("Journeys")
-        .toolbar {
-            JourneysToolbar(
-                isEditing: $isEditing,
-                selectedJourneys: $selectedJourneys,
-                showingManualJourneySheet: $showingManualJourneySheet
-            )
-        }
-        .overlay(Group {
+        Group {
             if isLoading {
                 ProgressView()
-            }
-        })
-        .alert(isPresented: $showingAlert) {
-            Alert(title: Text("Error"), message: Text(alertMessage), dismissButton: .default(Text("OK")))
-        }
-        .sheet(isPresented: $showingManualJourneySheet) {
-            ManualJourneyView(postcodes: postcodes) { newJourney in
-                onJourneyCreated(newJourney)
-            }
-        }
-        .sheet(isPresented: $showingExportSheet) {
-            ExportFormatView(
-                exportFormat: $exportFormat,
-                onCancel: { showingExportSheet = false },
-                onExport: onExport
-            )
-        }
-        .overlay(Group {
-            if isEditing && !selectedJourneys.isEmpty {
-                JourneysActionBar(
-                    showingExportSheet: $showingExportSheet,
-                    onDelete: onDelete
-                )
-            }
-        })
-    }
-}
-
-struct JourneysListContent: View {
-    let groupedJourneys: [(String, [Journey])]
-    @Binding var selectedJourneys: Set<Int>
-    let isEditing: Bool
-    
-    var body: some View {
-        List {
-            ForEach(groupedJourneys, id: \.0) { date, journeys in
-                JourneysSection(
-                    date: date,
-                    journeys: journeys,
-                    selectedJourneys: $selectedJourneys,
-                    isEditing: isEditing
-                )
-            }
-        }
-    }
-}
-
-struct JourneysSection: View {
-    let date: String
-    let journeys: [Journey]
-    @Binding var selectedJourneys: Set<Int>
-    let isEditing: Bool
-    
-    var body: some View {
-        Section(header: Text(date)) {
-            ForEach(journeys) { journey in
-                JourneyRow(journey: journey, isSelected: selectedJourneys.contains(journey.id), isEditing: isEditing) {
-                    if isEditing {
-                        if selectedJourneys.contains(journey.id) {
-                            selectedJourneys.remove(journey.id)
-                        } else {
-                            selectedJourneys.insert(journey.id)
-                        }
-                    }
+                    .scaleEffect(1.5)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .foregroundColor(.primary)
+            } else if groupedJourneys.isEmpty {
+                VStack(spacing: 20) {
+                    Image(systemName: "map")
+                        .font(.system(size: 60))
+                        .foregroundColor(.secondary)
+                    Text("No Journeys Recorded")
+                        .playfairDisplay(.title2)
+                        .foregroundColor(.primary)
+                    Text("Start tracking or add a manual journey to see them here.")
+                        .playfairDisplay(.subheadline)
+                        .foregroundColor(.secondary)
                 }
-            }
-        }
-    }
-}
-
-struct JourneysToolbar: ToolbarContent {
-    @Binding var isEditing: Bool
-    @Binding var selectedJourneys: Set<Int>
-    @Binding var showingManualJourneySheet: Bool
-    
-    var body: some ToolbarContent {
-        ToolbarItem(placement: .navigationBarTrailing) {
-            if isEditing {
-                Button("Done") {
-                    isEditing = false
-                    selectedJourneys.removeAll()
-                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                Button("Select") {
-                    isEditing = true
+                List {
+                    ForEach(groupedJourneys, id: \.0) { date, journeys in
+                        Section(header: Text(date).playfairDisplay(.headline).foregroundColor(.primary)) {
+                            ForEach(journeys) { journey in
+                                JourneyRow(
+                                    journey: journey,
+                                    isSelected: selectedJourneys.contains(journey.id),
+                                    isEditing: isEditing,
+                                    onSelect: {
+                                        if selectedJourneys.contains(journey.id) {
+                                            selectedJourneys.remove(journey.id)
+                                        } else {
+                                            selectedJourneys.insert(journey.id)
+                                        }
+                                    }
+                                )
+                                .listRowBackground(Color(.systemBackground))
+                                .listRowSeparator(.hidden)
+                                .padding(.vertical, 4)
+                            }
+                            .onDelete(perform: deleteItems)
+                        }
+                    }
+                    // Add padding to the bottom of the list
+                    Color.clear.frame(height: 50)
+                        .listRowBackground(Color.clear)
+                }
+                .listStyle(.plain)
+                .background(Color(.systemBackground))
+                .scrollContentBackground(.hidden)
+            }
+        }
+        .toolbar {
+            if isEditing {
+                ToolbarItem(placement: .bottomBar) {
+                    HStack {
+                        Button("Delete Selected") {
+                            onDelete()
+                        }
+                        .disabled(selectedJourneys.isEmpty)
+                        .foregroundColor(selectedJourneys.isEmpty ? .gray : .red)
+                        
+                        Spacer()
+                        
+                        Button("Export Selected") {
+                            onExport()
+                        }
+                        .disabled(selectedJourneys.isEmpty)
+                        .foregroundColor(selectedJourneys.isEmpty ? .gray : .primary)
+                    }
                 }
             }
         }
+    }
+    
+    private func deleteItems(at offsets: IndexSet) {
+         // Convert index set to journey IDs
+        let journeysToDelete = offsets.map { groupedJourneys.flatMap { $0.1 }[$0].id }
         
-        ToolbarItem(placement: .navigationBarLeading) {
-            Button(action: {
-                showingManualJourneySheet = true
-            }) {
-                Image(systemName: "plus")
-            }
+        // Add to selected journeys set and then call the main delete function
+        for id in journeysToDelete {
+            selectedJourneys.insert(id)
         }
-    }
-}
-
-struct JourneysActionBar: View {
-    @Binding var showingExportSheet: Bool
-    let onDelete: () -> Void
-    
-    var body: some View {
-        VStack {
-            Spacer()
-            HStack {
-                Button(action: {
-                    showingExportSheet = true
-                }) {
-                    Label("Export", systemImage: "square.and.arrow.up")
-                        .padding()
-                        .background(Color.blue)
-                        .foregroundColor(.white)
-                        .cornerRadius(10)
-                }
-                
-                Spacer()
-                
-                Button(action: onDelete) {
-                    Label("Delete", systemImage: "trash")
-                        .padding()
-                        .background(Color.red)
-                        .foregroundColor(.white)
-                        .cornerRadius(10)
-                }
-            }
-            .padding()
-            .background(Color(UIColor.systemBackground))
-            .shadow(radius: 5)
-        }
-    }
-}
-
-struct ExportFormatView: View {
-    @Binding var exportFormat: JourneysView.ExportFormat
-    let onCancel: () -> Void
-    let onExport: () -> Void
-    
-    var body: some View {
-        NavigationView {
-            List {
-                Section {
-                    Button(action: { exportFormat = .csv }) {
-                        HStack {
-                            Text("CSV Format")
-                            Spacer()
-                            if exportFormat == .csv {
-                                Image(systemName: "checkmark")
-                            }
-                        }
-                    }
-                    
-                    Button(action: { exportFormat = .excel }) {
-                        HStack {
-                            Text("Excel Format")
-                            Spacer()
-                            if exportFormat == .excel {
-                                Image(systemName: "checkmark")
-                            }
-                        }
-                    }
-                }
-            }
-            .navigationTitle("Export Format")
-            .navigationBarItems(
-                leading: Button("Cancel", action: onCancel),
-                trailing: Button("Export", action: onExport)
-            )
-        }
+        onDelete()
     }
 }
 
@@ -473,139 +434,192 @@ struct JourneyRow: View {
     let journey: Journey
     let isSelected: Bool
     let isEditing: Bool
-    let onSelected: () -> Void
+    let onSelect: () -> Void
     
     var body: some View {
         HStack {
             if isEditing {
-                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .foregroundColor(isSelected ? .blue : .gray)
-                    .font(.system(size: 20))
-                    .padding(.trailing, 8)
+                Button(action: onSelect) {
+                    Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                        .foregroundColor(.primary)
+                }
             }
             
             VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    VStack(alignment: .leading) {
-                        Text("From: \(journey.start_postcode)")
-                            .font(.subheadline)
-                        Text("To: \(journey.end_postcode)")
-                            .font(.subheadline)
-                    }
-                    Spacer()
-                    Text(String(format: "%.1f mi", journey.distance_miles))
-                        .font(.headline)
-                        .foregroundColor(.blue)
-                }
+                Text("\(journey.start_postcode) to \(journey.end_postcode)")
+                    .playfairDisplay(.headline)
+                    .foregroundColor(.primary)
                 
-                HStack {
-                    Text(formatTime(journey.start_time))
-                        .font(.caption)
-                        .foregroundColor(.gray)
-                    Text("→")
-                        .font(.caption)
-                        .foregroundColor(.gray)
-                    Text(formatTime(journey.end_time))
-                        .font(.caption)
-                        .foregroundColor(.gray)
-                }
+                let startTime = ISO8601DateFormatter().date(from: journey.start_time) ?? Date()
+                Text("Start: \(startTime, formatter: itemFormatter)")
+                    .playfairDisplay(.subheadline)
+                    .foregroundColor(.secondary)
+
+                let endTimeDate = ISO8601DateFormatter().date(from: journey.end_time) ?? Date()
+                Text("End: \(endTimeDate, formatter: itemFormatter)")
+                    .playfairDisplay(.subheadline)
+                    .foregroundColor(.secondary)
+                
+                Text(String(format: "Distance: %.2f km", journey.distance_miles))
+                    .playfairDisplay(.subheadline)
+                    .foregroundColor(.secondary)
+            }
+            
+            Spacer()
+            
+            if !isEditing && journey.distance_miles == 0 {
+                Text("Ongoing...")
+                    .playfairDisplay(.caption)
+                    .foregroundColor(.orange)
             }
         }
-        .padding(.vertical, 4)
-        .contentShape(Rectangle())
-        .onTapGesture {
-            onSelected()
-        }
-        .background(
-            isSelected ? Color.blue.opacity(0.1) : Color.clear
-        )
-    }
-    
-    private func formatTime(_ isoString: String) -> String {
-        guard let date = ISO8601DateFormatter().date(from: isoString) else {
-            return isoString
-        }
-        let formatter = DateFormatter()
-        formatter.timeStyle = .short
-        return formatter.string(from: date)
+        .padding()
+        .background(Color(.secondarySystemBackground))
+        .cornerRadius(12)
+        .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
     }
 }
 
-struct ManualJourneyView: View {
-    let postcodes: [Postcode]
-    let onJourneyCreated: (Journey) -> Void
-    
-    @Environment(\.dismiss) private var dismiss
-    @State private var selectedStartPostcode: Postcode?
-    @State private var selectedEndPostcode: Postcode?
+private let itemFormatter: DateFormatter = {
+    let formatter = DateFormatter()
+    formatter.dateStyle = .short
+    formatter.timeStyle = .short
+    return formatter
+}()
+
+struct AddManualJourneyView: View {
+    @Environment(\.presentationMode) var presentationMode
+    @State private var startPostcode = ""
+    @State private var endPostcode = ""
     @State private var isLoading = false
     @State private var showingAlert = false
     @State private var alertMessage = ""
+    let onJourneyCreated: (Journey) -> Void
     
     var body: some View {
         NavigationView {
-            Form {
-                Section(header: Text("Start Postcode")) {
-                    Picker("Select Start Postcode", selection: $selectedStartPostcode) {
-                        Text("Select a postcode").tag(nil as Postcode?)
-                        ForEach(postcodes) { postcode in
-                            Text("\(postcode.name) (\(postcode.postcode))")
-                                .tag(postcode as Postcode?)
-                        }
-                    }
-                }
+            ZStack {
+                Color(.systemBackground).ignoresSafeArea()
                 
-                Section(header: Text("End Postcode")) {
-                    Picker("Select End Postcode", selection: $selectedEndPostcode) {
-                        Text("Select a postcode").tag(nil as Postcode?)
-                        ForEach(postcodes) { postcode in
-                            Text("\(postcode.name) (\(postcode.postcode))")
-                                .tag(postcode as Postcode?)
-                        }
-                    }
+                Form {
+                     Section {
+                         TextField("Start Postcode", text: $startPostcode)
+                             .postcodeInput($startPostcode)
+                             .playfairDisplay(.body)
+                             .foregroundColor(.primary)
+                         TextField("End Postcode", text: $endPostcode)
+                             .postcodeInput($endPostcode)
+                             .playfairDisplay(.body)
+                             .foregroundColor(.primary)
+                     } header: {
+                         Text("Manual Journey Details")
+                             .playfairDisplay(.headline)
+                             .foregroundColor(.primary)
+                     } footer: {
+                         Text("Enter the start and end postcodes for a journey.")
+                             .playfairDisplay(.subheadline)
+                             .foregroundColor(.secondary)
+                     }
+                    
+                     if isLoading {
+                         ProgressView()
+                             .scaleEffect(1.0)
+                             .frame(maxWidth: .infinity, alignment: .center)
+                             .foregroundColor(.primary)
+                     }
                 }
+                .scrollContentBackground(.hidden)
+                .background(Color(.systemBackground))
             }
-            .navigationTitle("Create Journey")
+            .navigationTitle("Add Manual Journey")
+            .navigationBarTitleDisplayMode(.large)
             .navigationBarItems(
                 leading: Button("Cancel") {
-                    dismiss()
-                },
-                trailing: Button("Create") {
-                    createJourney()
+                    presentationMode.wrappedValue.dismiss()
                 }
-                .disabled(selectedStartPostcode == nil || selectedEndPostcode == nil || isLoading)
+                .foregroundColor(.primary),
+                trailing: Button("Add") {
+                     createManualJourney()
+                }
+                .disabled(startPostcode.isEmpty || endPostcode.isEmpty || isLoading)
+                .foregroundColor(startPostcode.isEmpty || endPostcode.isEmpty || isLoading ? .gray : .primary)
             )
-            .alert("Error", isPresented: $showingAlert) {
-                Button("OK", role: .cancel) { }
+            .alert("Manual Journey", isPresented: $showingAlert) {
+                 Button("OK", role: .cancel) { }
             } message: {
                 Text(alertMessage)
+                    .playfairDisplay(.body)
+                    .foregroundColor(.primary)
             }
         }
+        .navigationViewStyle(.stack)
     }
     
-    private func createJourney() {
-        guard let start = selectedStartPostcode, let end = selectedEndPostcode else { return }
-        
+    private func createManualJourney() {
         isLoading = true
         
         Task {
             do {
                 let journey = try await APIService.shared.createManualJourney(
-                    startPostcode: start.postcode,
-                    endPostcode: end.postcode
+                    startPostcode: startPostcode,
+                    endPostcode: endPostcode
                 )
+                
                 await MainActor.run {
                     onJourneyCreated(journey)
-                    dismiss()
+                    presentationMode.wrappedValue.dismiss()
                 }
             } catch {
                 await MainActor.run {
-                    alertMessage = "Failed to create journey: \(error.localizedDescription)"
+                    alertMessage = "Error creating manual journey: \(error.localizedDescription)"
                     showingAlert = true
-                    isLoading = false
                 }
             }
+            await MainActor.run {
+                isLoading = false
+            }
         }
+    }
+}
+
+struct ExportOptionsView: View {
+    @Environment(\.presentationMode) var presentationMode
+    @Binding var exportFormat: JourneysView.ExportFormat
+    let onExport: () -> Void
+    
+    var body: some View {
+        NavigationView {
+            ZStack {
+                Color(.systemBackground).ignoresSafeArea()
+                
+                Form {
+                    Section(header: Text("Export Format").playfairDisplay(.headline).foregroundColor(.primary)) {
+                        Picker("Format", selection: $exportFormat) {
+                            Text("CSV").tag(JourneysView.ExportFormat.csv).playfairDisplay(.body)
+                            Text("Excel").tag(JourneysView.ExportFormat.excel).playfairDisplay(.body)
+                        }
+                        .pickerStyle(.inline)
+                        .foregroundColor(.primary)
+                    }
+                }
+                .scrollContentBackground(.hidden)
+                .background(Color(.systemBackground))
+            }
+            .navigationTitle("Export Options")
+            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarItems(
+                leading: Button("Cancel") {
+                    presentationMode.wrappedValue.dismiss()
+                }
+                .foregroundColor(.primary),
+                trailing: Button("Export") {
+                    onExport()
+                    presentationMode.wrappedValue.dismiss()
+                }
+                .foregroundColor(.primary)
+            )
+        }
+        .navigationViewStyle(.stack)
     }
 }
 
@@ -613,14 +627,13 @@ struct ShareSheet: UIViewControllerRepresentable {
     let activityItems: [Any]
     
     func makeUIViewController(context: Context) -> UIActivityViewController {
-        let controller = UIActivityViewController(
-            activityItems: activityItems,
-            applicationActivities: nil
-        )
+        let controller = UIActivityViewController(activityItems: activityItems, applicationActivities: nil)
         return controller
     }
     
-    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {
+        
+    }
 }
 
 #Preview {

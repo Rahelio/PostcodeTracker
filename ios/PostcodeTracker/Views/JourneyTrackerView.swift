@@ -152,118 +152,123 @@ struct JourneyTrackerView: View {
     
     var body: some View {
         NavigationView {
-            ScrollView {
-                VStack(spacing: 25) {
-                    // Spacer to push content down
-                    Spacer()
-                        .frame(height: isRecording ? UIScreen.main.bounds.height * 0.05 : UIScreen.main.bounds.height * 0.15)
-                    
-                    // Main Status and Controls
-                    VStack(spacing: 30) {
-                        // Status Header
-                        VStack(spacing: 12) {
-                            Image(systemName: isRecording ? "location.fill" : "location")
-                                .font(.system(size: 60))
-                                .foregroundColor(isRecording ? .red : .green)
-                                .symbolEffect(.bounce, options: .repeating, value: isRecording)
+            ZStack {
+                Color(.systemBackground).ignoresSafeArea()
+                
+                ScrollView {
+                    VStack(spacing: 25) {
+                        // Spacer to push content down
+                        Spacer()
+                            .frame(height: isRecording ? UIScreen.main.bounds.height * 0.05 : UIScreen.main.bounds.height * 0.15)
+                        
+                        // Main Status and Controls
+                        VStack(spacing: 30) {
+                            // Status Header
+                            VStack(spacing: 12) {
+                                Image(systemName: isRecording ? "location.fill" : "location")
+                                    .font(.system(size: 60))
+                                    .foregroundColor(isRecording ? .red : .green)
+                                    .symbolEffect(.bounce, options: .repeating, value: isRecording)
+                                
+                                Text(isRecording ? "Journey in Progress" : "Ready to Start")
+                                    .playfairDisplay(.title2)
+                                    .foregroundColor(.primary)
+                            }
+                            .frame(maxWidth: .infinity)
                             
-                            Text(isRecording ? "Journey in Progress" : "Ready to Start")
-                                .playfairDisplay(.title2)
-                                .foregroundColor(isRecording ? .red : .green)
+                            // Action Button
+                            if !isRecording {
+                                Button(action: startJourney) {
+                                    HStack {
+                                        Image(systemName: "play.fill")
+                                        Text("Start Journey")
+                                            .playfairDisplay(.headline)
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                    .padding()
+                                    .background(Color.green)
+                                    .foregroundColor(.white)
+                                    .cornerRadius(16)
+                                    .shadow(color: Color.black.opacity(0.2), radius: 5, x: 0, y: 3)
+                                }
+                                .padding(.horizontal, 40)
+                            } else {
+                                Button(action: endJourney) {
+                                    HStack {
+                                        Image(systemName: "stop.fill")
+                                        Text("End Journey")
+                                            .playfairDisplay(.headline)
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                    .padding()
+                                    .background(Color.red)
+                                    .foregroundColor(.white)
+                                    .cornerRadius(16)
+                                    .shadow(color: Color.black.opacity(0.2), radius: 5, x: 0, y: 3)
+                                }
+                                .padding(.horizontal, 40)
+                            }
                         }
                         .frame(maxWidth: .infinity)
                         
-                        // Action Button
-                        if !isRecording {
-                            Button(action: startJourney) {
-                                HStack {
-                                    Image(systemName: "play.fill")
-                                    Text("Start Journey")
-                                        .playfairDisplay(.headline)
-                                }
-                                .frame(maxWidth: .infinity)
+                        // Spacer to balance the layout
+                        Spacer()
+                            .frame(height: isRecording ? UIScreen.main.bounds.height * 0.05 : UIScreen.main.bounds.height * 0.15)
+                        
+                        if isLoading {
+                            ProgressView()
+                                .scaleEffect(1.5)
                                 .padding()
-                                .background(Color.green)
-                                .foregroundColor(.white)
-                                .cornerRadius(16)
-                                .shadow(color: Color.green.opacity(0.3), radius: 5, x: 0, y: 3)
-                            }
-                            .padding(.horizontal, 40)
-                        } else {
-                            Button(action: endJourney) {
-                                HStack {
-                                    Image(systemName: "stop.fill")
-                                    Text("End Journey")
-                                        .playfairDisplay(.headline)
+                                .foregroundColor(.primary)
+                        }
+                        
+                        // Journey Details Section
+                        if startPostcode != nil || endPostcode != nil {
+                            VStack(spacing: 15) {
+                                // Start Location Card
+                                if let start = startPostcode {
+                                    LocationCard(
+                                        title: "Start Location",
+                                        name: start.name,
+                                        postcode: start.postcode,
+                                        latitude: start.latitude,
+                                        longitude: start.longitude
+                                    )
                                 }
-                                .frame(maxWidth: .infinity)
-                                .padding()
-                                .background(Color.red)
-                                .foregroundColor(.white)
-                                .cornerRadius(16)
-                                .shadow(color: Color.red.opacity(0.3), radius: 5, x: 0, y: 3)
+                                
+                                // End Location Card
+                                if let end = endPostcode {
+                                    LocationCard(
+                                        title: "End Location",
+                                        name: end.name,
+                                        postcode: end.postcode,
+                                        latitude: end.latitude,
+                                        longitude: end.longitude
+                                    )
+                                }
+                                
+                                // Distance Card
+                                if let distance = distance {
+                                    VStack(spacing: 8) {
+                                        Text("Distance")
+                                            .playfairDisplay(.headline)
+                                            .foregroundColor(.gray)
+                                        Text(String(format: "%.2f km", distance))
+                                            .playfairDisplay(.title2)
+                                            .foregroundColor(.white)
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                    .padding()
+                                    .background(Color(.systemGray6))
+                                    .cornerRadius(16)
+                                    .shadow(color: Color.white.opacity(0.05), radius: 5, x: 0, y: 2)
+                                }
                             }
-                            .padding(.horizontal, 40)
+                            .padding(.horizontal)
                         }
                     }
-                    .frame(maxWidth: .infinity)
-                    
-                    // Spacer to balance the layout
-                    Spacer()
-                        .frame(height: isRecording ? UIScreen.main.bounds.height * 0.05 : UIScreen.main.bounds.height * 0.15)
-                    
-                    if isLoading {
-                        ProgressView()
-                            .scaleEffect(1.5)
-                            .padding()
-                    }
-                    
-                    // Journey Details Section
-                    if startPostcode != nil || endPostcode != nil {
-                        VStack(spacing: 15) {
-                            // Start Location Card
-                            if let start = startPostcode {
-                                LocationCard(
-                                    title: "Start Location",
-                                    name: start.name,
-                                    postcode: start.postcode,
-                                    latitude: start.latitude,
-                                    longitude: start.longitude
-                                )
-                            }
-                            
-                            // End Location Card
-                            if let end = endPostcode {
-                                LocationCard(
-                                    title: "End Location",
-                                    name: end.name,
-                                    postcode: end.postcode,
-                                    latitude: end.latitude,
-                                    longitude: end.longitude
-                                )
-                            }
-                            
-                            // Distance Card
-                            if let distance = distance {
-                                VStack(spacing: 8) {
-                                    Text("Distance")
-                                        .playfairDisplay(.headline)
-                                        .foregroundColor(.secondary)
-                                    Text(String(format: "%.2f km", distance))
-                                        .playfairDisplay(.title2)
-                                        .foregroundColor(.primary)
-                                }
-                                .frame(maxWidth: .infinity)
-                                .padding()
-                                .background(Color(.systemBackground))
-                                .cornerRadius(16)
-                                .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
-                            }
-                        }
-                        .padding(.horizontal)
-                    }
+                    .padding(.vertical)
                 }
-                .padding(.vertical)
             }
             .navigationTitle("Track Journey")
             .navigationBarTitleDisplayMode(.large)
@@ -272,6 +277,7 @@ struct JourneyTrackerView: View {
             } message: {
                 Text(alertMessage)
                     .playfairDisplay(.body)
+                    .foregroundColor(.white)
             }
             .onAppear {
                 locationManager.startUpdatingLocation()
@@ -294,7 +300,7 @@ struct JourneyTrackerView: View {
                         endPostcode: endPostcode,
                         distance: distance,
                         startTime: Date(),
-                        journeyId: currentJourneyId // Save journey ID
+                        journeyId: currentJourneyId
                     )
                     JourneyState.save(state)
                 } else {
@@ -302,6 +308,7 @@ struct JourneyTrackerView: View {
                 }
             }
         }
+        .navigationViewStyle(.stack)
     }
     
     private func startJourney() {
@@ -482,34 +489,34 @@ struct LocationCard: View {
         VStack(alignment: .leading, spacing: 12) {
             Text(title)
                 .playfairDisplay(.headline)
-                .foregroundColor(.secondary)
+                .foregroundColor(.gray)
             
             VStack(alignment: .leading, spacing: 8) {
                 Text(name)
                     .playfairDisplay(.title3)
-                    .foregroundColor(.primary)
+                    .foregroundColor(.white)
                 
                 Text(postcode)
                     .playfairDisplay(.subheadline)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(.gray)
                 
                 if let lat = latitude, let lon = longitude {
                     HStack {
                         Image(systemName: "location.fill")
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(.gray)
                         Text("\(String(format: "%.4f, %.4f", lat, lon))")
                             .playfairDisplay(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(.gray)
                     }
                 }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding()
-        .background(Color(.systemBackground))
+        .background(Color(.systemGray6))
         .cornerRadius(16)
-        .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
+        .shadow(color: Color.white.opacity(0.05), radius: 5, x: 0, y: 2)
     }
 }
 
