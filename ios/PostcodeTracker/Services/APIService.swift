@@ -80,9 +80,9 @@ class APIService {
     private let baseURL = "https://rickys.ddns.net/LocationApp/api"
     private var authToken: String?
     private var lastRequestTime: Date?
-    private let minimumRequestInterval: TimeInterval = 1.0 // Minimum 1 second between requests
+    private let minimumRequestInterval: TimeInterval = 1.0
     private let maxRetries = 3
-    private let retryDelay: TimeInterval = 2.0 // 2 seconds between retries
+    private let retryDelay: TimeInterval = 2.0
     private let session: URLSession
     
     private init() {
@@ -92,8 +92,9 @@ class APIService {
         configuration.httpMaximumConnectionsPerHost = 1
         configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
         
-        // Create a custom URLSession with the configuration
-        self.session = URLSession(configuration: configuration)
+        // Configure URLSession to handle redirects
+        let delegate = URLSessionDelegate()
+        self.session = URLSession(configuration: configuration, delegate: delegate, delegateQueue: nil)
     }
     
     func setAuthToken(_ token: String?) {
@@ -123,9 +124,6 @@ class APIService {
             
             let (data, response) = try await session.data(for: request)
             
-            print("Response received for: \(request.url?.absoluteString ?? "unknown")")
-            print("Raw response data: \(String(data: data, encoding: .utf8) ?? "none")")
-            
             guard let httpResponse = response as? HTTPURLResponse else {
                 print("Invalid response type received")
                 throw APIError.invalidResponse
@@ -133,50 +131,40 @@ class APIService {
             
             print("Response status code: \(httpResponse.statusCode)")
             
-            // Handle redirects
-            if httpResponse.statusCode >= 300 && httpResponse.statusCode < 400 {
-                print("Received redirect response: \(httpResponse.statusCode)")
-                throw APIError.redirectError
-            }
-            
-            if httpResponse.statusCode == 429 { // Too Many Requests
-                print("Rate limit hit, attempt \(retryCount + 1) of \(maxRetries)")
-                if retryCount < maxRetries {
-                    let delay = retryDelay * Double(retryCount + 1)
-                    print("Waiting \(delay) seconds before retry")
-                    try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
-                    return try await performRequest(request, retryCount: retryCount + 1)
-                }
-                print("Max retries reached, throwing rate limit error")
-                throw APIError.rateLimitExceeded
-            }
-            
-            if httpResponse.statusCode == 200 || httpResponse.statusCode == 201 {
+            // Handle different status codes
+            switch httpResponse.statusCode {
+            case 200...299:
+                // Success
                 do {
-                    let decodedResponse = try JSONDecoder().decode(T.self, from: data)
-                    print("Successfully decoded response")
-                    return decodedResponse
+                    return try JSONDecoder().decode(T.self, from: data)
                 } catch {
-                    print("Failed to decode response: \(error)")
-                    print("Response data: \(String(data: data, encoding: .utf8) ?? "none")")
+                    print("Decoding error: \(error)")
                     throw APIError.decodingError(error)
                 }
-            } else if httpResponse.statusCode == 401 {
-                print("Unauthorized access")
-                throw APIError.unauthorized
-            } else {
-                do {
-                    let errorResponse = try JSONDecoder().decode(ErrorResponse.self, from: data)
-                    print("Server error: \(errorResponse.error)")
-                    throw APIError.serverError(errorResponse.error)
-                } catch {
-                    print("Failed to decode error response: \(error)")
-                    print("Error response data: \(String(data: data, encoding: .utf8) ?? "none")")
-                    throw APIError.serverError("Server error with status code: \(httpResponse.statusCode)")
+            case 301, 302, 307, 308:
+                // Handle redirects
+                if retryCount < maxRetries {
+                    print("Following redirect...")
+                    if let location = httpResponse.allHeaderFields["Location"] as? String,
+                       let newURL = URL(string: location) {
+                        var newRequest = request
+                        newRequest.url = newURL
+                        try await Task.sleep(nanoseconds: UInt64(retryDelay * 1_000_000_000))
+                        return try await performRequest(newRequest, retryCount: retryCount + 1)
+                    }
                 }
+                throw APIError.redirectError
+            case 401:
+                throw APIError.unauthorized
+            case 429:
+                throw APIError.rateLimitExceeded
+            default:
+                if let errorResponse = try? JSONDecoder().decode(ErrorResponse.self, from: data) {
+                    throw APIError.serverError(errorResponse.error)
+                }
+                throw APIError.serverError("Server error: \(httpResponse.statusCode)")
             }
         } catch let error as APIError {
-            print("API Error occurred: \(error.localizedDescription)")
             throw error
         } catch let error as URLError {
             print("URL Error occurred: \(error.localizedDescription)")

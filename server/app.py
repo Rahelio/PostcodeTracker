@@ -9,6 +9,7 @@ from server.database import init_db
 from dotenv import load_dotenv
 from server.api.auth import auth_bp
 from server.api.postcodes import postcodes_bp
+from werkzeug.serving import WSGIRequestHandler
 
 # Load environment variables from .env file
 load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
@@ -21,6 +22,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Force HTTP/1.1
+WSGIRequestHandler.protocol_version = "HTTP/1.1"
+
 def create_app():
     app = Flask(__name__)
     
@@ -28,15 +32,28 @@ def create_app():
     CORS(app, resources={r"/api/*": {
         "origins": "*",
         "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        "allow_headers": ["Content-Type", "Authorization"]
+        "allow_headers": ["Content-Type", "Authorization"],
+        "supports_credentials": True,
+        "max_age": 3600
     }})
     
     @app.after_request
     def after_request(response):
         # Force HTTP/1.1
-        response.headers['Connection'] = 'close'
+        response.headers['Connection'] = 'keep-alive'
         response.headers['Content-Type'] = 'application/json'
         response.headers['Server'] = 'PostcodeTracker/1.0'
+        
+        # Add security headers
+        response.headers['X-Content-Type-Options'] = 'nosniff'
+        response.headers['X-Frame-Options'] = 'DENY'
+        response.headers['X-XSS-Protection'] = '1; mode=block'
+        
+        # Add CORS headers
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+        
         return response
     
     # Health check endpoint
@@ -72,4 +89,4 @@ def create_app():
 app = create_app()
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5319, debug=True) 
+    app.run(host='127.0.0.1', port=8000, debug=True) 
