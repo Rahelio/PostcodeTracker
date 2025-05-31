@@ -124,27 +124,45 @@ def calculate_postcode_distance():
 def delete_postcode(postcode_id):
     try:
         db = next(get_db())
+        logging.info(f"Attempting to delete postcode with ID: {postcode_id}")
         
         postcode = db.query(Postcode).filter_by(id=postcode_id).first()
         if not postcode:
+            logging.warning(f"Postcode with ID {postcode_id} not found")
             return jsonify({'error': 'Postcode not found'}), 404
             
         # Check if postcode is used in any journeys
         from server.models.journey import Journey
+        logging.info(f"Checking for journeys using postcode ID {postcode_id}")
+        
+        # Check both location IDs and postcode strings
         journeys = db.query(Journey).filter(
             (Journey.start_location_id == postcode_id) |
-            (Journey.end_location_id == postcode_id)
+            (Journey.end_location_id == postcode_id) |
+            (Journey.start_postcode == postcode.postcode) |
+            (Journey.end_postcode == postcode.postcode)
         ).count()
         
+        logging.info(f"Found {journeys} journeys using postcode ID {postcode_id}")
+        
         if journeys > 0:
+            logging.warning(f"Cannot delete postcode {postcode_id} - used in {journeys} journeys")
             return jsonify({
                 'error': f'Cannot delete postcode that is used in {journeys} journeys'
             }), 400
         
-        db.delete(postcode)
-        db.commit()
-        
-        return jsonify({'message': 'Postcode deleted successfully'}), 200
+        try:
+            logging.info(f"Deleting postcode with ID {postcode_id}")
+            db.delete(postcode)
+            db.commit()
+            logging.info(f"Successfully deleted postcode with ID {postcode_id}")
+            
+            return jsonify({'message': 'Postcode deleted successfully'}), 200
+        except Exception as e:
+            logging.error(f"Database error while deleting postcode {postcode_id}: {str(e)}", exc_info=True)
+            db.rollback()
+            return jsonify({'error': 'Database error while deleting postcode'}), 500
+            
     except Exception as e:
-        logging.error(f"Error deleting postcode: {str(e)}")
+        logging.error(f"Error deleting postcode {postcode_id}: {str(e)}", exc_info=True)
         return jsonify({'error': 'Server error'}), 500 
