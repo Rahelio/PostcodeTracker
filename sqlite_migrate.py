@@ -3,7 +3,7 @@ import sys
 import sqlite3
 from sqlalchemy import text, inspect
 from app import app, db
-from models import Journey, SavedLocation
+from models import Journey, Postcode
 
 """
 SQLite-specific migration script that handles the database structure update
@@ -54,6 +54,8 @@ def run_sqlite_migration():
             id INTEGER PRIMARY KEY,
             name VARCHAR(100) NOT NULL,
             postcode VARCHAR(10) NOT NULL,
+            latitude FLOAT,
+            longitude FLOAT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
         ''')
