@@ -2,12 +2,12 @@ import os
 import sys
 from sqlalchemy import text
 from app import app, db
-from models import Journey, SavedLocation, User
+from models import Journey, Postcode, User
 import logging
 
 """
 Simple database migration script to handle the addition of new columns to the Journey table
-and create the SavedLocation table.
+and create the Postcode table.
 """
 
 logger = logging.getLogger(__name__)
@@ -27,15 +27,15 @@ def run_migration():
         
         # Create all tables
         logger.info("Creating all tables")
-            db.create_all()
+        db.create_all()
         db.session.commit()
         logger.info("Migration completed successfully")
         
-            except Exception as e:
+    except Exception as e:
         logger.error(f"Error during migration: {e}")
         db.session.rollback()
         raise
 
 if __name__ == "__main__":
     with app.app_context():
-    run_migration()
+        run_migration()
