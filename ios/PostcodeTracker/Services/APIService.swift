@@ -75,6 +75,30 @@ struct StartJourneyResponse: Codable {
     let journey_id: Int
 }
 
+// Custom URLSession delegate to handle redirects
+class CustomURLSessionDelegate: NSObject, URLSessionTaskDelegate {
+    func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse, newRequest request: URLRequest, completionHandler: @escaping (URLRequest?) -> Void) {
+        print("Redirect detected:")
+        print("From: \(response.url?.absoluteString ?? "unknown")")
+        print("To: \(request.url?.absoluteString ?? "unknown")")
+        print("Status code: \(response.statusCode)")
+        print("Headers: \(response.allHeaderFields)")
+        
+        // Only allow redirects to HTTPS URLs
+        if let newURL = request.url, newURL.scheme == "https" {
+            var newRequest = request
+            // Add headers to prevent redirect loops
+            newRequest.addValue("no-cache, no-store, must-revalidate", forHTTPHeaderField: "Cache-Control")
+            newRequest.addValue("no-cache", forHTTPHeaderField: "Pragma")
+            newRequest.addValue("0", forHTTPHeaderField: "Expires")
+            newRequest.addValue("keep-alive", forHTTPHeaderField: "Connection")
+            completionHandler(newRequest)
+        } else {
+            completionHandler(nil)
+        }
+    }
+}
+
 class APIService {
     static let shared = APIService()
     private let baseURL = "https://rickys.ddns.net/LocationApp/api"
@@ -93,7 +117,7 @@ class APIService {
         configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
         
         // Configure URLSession to handle redirects
-        let delegate = URLSessionDelegate()
+        let delegate = CustomURLSessionDelegate()
         self.session = URLSession(configuration: configuration, delegate: delegate, delegateQueue: nil)
     }
     
@@ -197,9 +221,16 @@ class APIService {
         var request = URLRequest(url: url)
         request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
         if let token = authToken {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
+        
+        // Add headers to prevent redirect loops
+        request.setValue("no-cache, no-store, must-revalidate", forHTTPHeaderField: "Cache-Control")
+        request.setValue("no-cache", forHTTPHeaderField: "Pragma")
+        request.setValue("0", forHTTPHeaderField: "Expires")
+        request.setValue("keep-alive", forHTTPHeaderField: "Connection")
         
         print("Created request with URL: \(request.url?.absoluteString ?? "nil")")
         return request
