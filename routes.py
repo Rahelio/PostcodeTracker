@@ -762,11 +762,22 @@ def delete_postcode(postcode_id):
         except jwt.InvalidTokenError:
             return jsonify({'error': 'Invalid token'}), 401
             
-        # Find and delete the postcode
+        # Find the postcode
         postcode = Postcode.query.get(postcode_id)
         if not postcode:
             return jsonify({'error': 'Postcode not found'}), 404
             
+        # Check if the postcode is used in any journeys
+        used_as_start = Journey.query.filter_by(start_location_id=postcode_id).first()
+        used_as_end = Journey.query.filter_by(end_location_id=postcode_id).first()
+        
+        if used_as_start or used_as_end:
+            return jsonify({
+                'error': 'Cannot delete postcode that is used in journeys',
+                'details': 'This postcode is referenced by one or more journeys and cannot be deleted.'
+            }), 400
+            
+        # If not used in any journeys, proceed with deletion
         db.session.delete(postcode)
         db.session.commit()
         
@@ -775,4 +786,4 @@ def delete_postcode(postcode_id):
     except Exception as e:
         logger.error(f"Error deleting postcode: {e}")
         db.session.rollback()
-        return jsonify({'error': 'Server error'}), 500
+        return jsonify({'error': f'Server error: {str(e)}'}), 500
