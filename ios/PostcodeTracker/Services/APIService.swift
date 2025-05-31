@@ -515,7 +515,7 @@ class APIService {
     }
     
     func deleteJourney(ids: [Int]) async throws {
-        var request = try createRequest(path: "/journeys", method: "DELETE")
+        var request = try createRequest(path: "/journeys/delete", method: "POST")
         
         let body = ["journey_ids": ids]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
