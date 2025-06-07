@@ -1,12 +1,12 @@
 import multiprocessing
 
 # Server socket
-bind = "127.0.0.1:8000"
+bind = "127.0.0.1:8005"
 backlog = 2048
 
 # Worker processes
 workers = 1  # Reduced to 1 for debugging
-worker_class = 'uvicorn.workers.UvicornWorker'  # Using uvicorn worker for better HTTP/1.1 support
+worker_class = 'sync'  # Using default sync worker for Flask
 worker_connections = 1000
 timeout = 30
 keepalive = 65

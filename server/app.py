@@ -29,7 +29,7 @@ def create_app():
     app = Flask(__name__)
     
     # Configure CORS
-    CORS(app, resources={r"/api/*": {
+    CORS(app, resources={r"/*": {
         "origins": "*",
         "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
         "allow_headers": ["Content-Type", "Authorization"],
@@ -39,6 +39,11 @@ def create_app():
     
     @app.after_request
     def after_request(response):
+        # Log request details
+        logger.debug(f"Request path: {request.path}")
+        logger.debug(f"Request method: {request.method}")
+        logger.debug(f"Response status: {response.status_code}")
+        
         # Force HTTP/1.1
         response.headers['Connection'] = 'keep-alive'
         response.headers['Content-Type'] = 'application/json'
@@ -57,8 +62,9 @@ def create_app():
         return response
     
     # Health check endpoint
-    @app.route('/api/health')
+    @app.route('/health')
     def health_check():
+        logger.debug("Health check endpoint called")
         return jsonify({
             'status': 'healthy',
             'database': 'connected'
@@ -67,6 +73,7 @@ def create_app():
     # Root endpoint
     @app.route('/')
     def root():
+        logger.debug("Root endpoint called")
         return jsonify({
             'message': 'Welcome to PostcodeTracker API',
             'version': '1.0'
@@ -81,8 +88,8 @@ def create_app():
     init_db()
     
     # Import and register blueprints
-    app.register_blueprint(auth_bp, url_prefix='/api/auth')
-    app.register_blueprint(postcodes_bp, url_prefix='/api/postcodes')
+    app.register_blueprint(auth_bp, url_prefix='/auth')
+    app.register_blueprint(postcodes_bp, url_prefix='/postcodes')
     
     return app
 
