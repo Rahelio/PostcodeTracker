@@ -102,9 +102,16 @@ struct PostcodeListView: View {
         errorMessage = nil
         
         do {
+            print("Loading postcodes...")
             postcodes = try await APIService.shared.getPostcodes()
-        } catch {
+            print("Successfully loaded \(postcodes.count) postcodes")
+        } catch let error as APIError {
+            print("API Error occurred: \(error.debugDescription)")
+            print("Error description: \(error.localizedDescription)")
             errorMessage = error.localizedDescription
+        } catch {
+            print("Unexpected error occurred: \(error)")
+            errorMessage = "An unexpected error occurred: \(error.localizedDescription)"
         }
         
         isLoading = false
@@ -117,13 +124,20 @@ struct PostcodeListView: View {
         errorMessage = nil
         
         do {
+            print("Adding new postcode: \(newPostcode)")
             let postcode = try await APIService.shared.addPostcode(newPostcode, name: newName.isEmpty ? newPostcode : newName)
+            print("Successfully added postcode: \(postcode.postcode)")
             postcodes.append(postcode)
             newPostcode = ""
             newName = ""
             showingAddPostcode = false
-        } catch {
+        } catch let error as APIError {
+            print("API Error occurred: \(error.debugDescription)")
+            print("Error description: \(error.localizedDescription)")
             errorMessage = error.localizedDescription
+        } catch {
+            print("Unexpected error occurred: \(error)")
+            errorMessage = "An unexpected error occurred: \(error.localizedDescription)"
         }
         
         isLoading = false
@@ -134,10 +148,17 @@ struct PostcodeListView: View {
             for index in offsets {
                 let postcode = postcodes[index]
                 do {
+                    print("Deleting postcode: \(postcode.postcode)")
                     try await APIService.shared.deletePostcode(id: postcode.id)
+                    print("Successfully deleted postcode: \(postcode.postcode)")
                     postcodes.remove(at: index)
-                } catch {
+                } catch let error as APIError {
+                    print("API Error occurred: \(error.debugDescription)")
+                    print("Error description: \(error.localizedDescription)")
                     errorMessage = error.localizedDescription
+                } catch {
+                    print("Unexpected error occurred: \(error)")
+                    errorMessage = "An unexpected error occurred: \(error.localizedDescription)"
                 }
             }
         }

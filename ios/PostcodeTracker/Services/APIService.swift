@@ -33,26 +33,51 @@ enum APIError: Error {
                 case .secureConnectionFailed:
                     return "Secure connection failed. Please try again."
                 default:
-                    return "Network error: \(urlError.localizedDescription)"
+                    return "Network error: \(urlError.localizedDescription) (Code: \(urlError.code.rawValue))"
                 }
             }
             return "Network error: \(error.localizedDescription)"
         case .invalidResponse:
-            return "Invalid response from server"
+            return "Invalid response from server - The server returned an unexpected response"
         case .decodingError(let error):
             return "Failed to decode response: \(error.localizedDescription)"
         case .serverError(let message):
-            return message
+            return "Server error: \(message)"
         case .unauthorized:
-            return "Unauthorized - Please check your credentials"
+            return "Unauthorized - Please check your credentials and try logging in again"
         case .rateLimitExceeded:
             return "Too many requests. Please wait a moment and try again."
         case .redirectError:
-            return "Connection error. Please check your internet connection and try again."
+            return "Connection error - The server is redirecting incorrectly. Please try again."
         case .connectionError:
-            return "Unable to connect to server. Please check your internet connection."
+            return "Unable to connect to server. Please check your internet connection and try again."
         case .unknown:
             return "An unknown error occurred. Please try again."
+        }
+    }
+    
+    var debugDescription: String {
+        switch self {
+        case .invalidURL:
+            return "Invalid URL"
+        case .networkError(let error):
+            return "Network Error: \(error)"
+        case .invalidResponse:
+            return "Invalid Response"
+        case .decodingError(let error):
+            return "Decoding Error: \(error)"
+        case .serverError(let message):
+            return "Server Error: \(message)"
+        case .unauthorized:
+            return "Unauthorized"
+        case .rateLimitExceeded:
+            return "Rate Limit Exceeded"
+        case .redirectError:
+            return "Redirect Error"
+        case .connectionError:
+            return "Connection Error"
+        case .unknown:
+            return "Unknown Error"
         }
     }
 }
@@ -113,7 +138,7 @@ class CustomURLSessionDelegate: NSObject, URLSessionTaskDelegate {
 
 class APIService {
     static let shared = APIService()
-    private let baseURL = "https://rickys.ddns.net/LocationApp/api"
+    private let baseURL = "https://rickys.ddns.net/LocationApp/api/"
     private var authToken: String?
     private var lastRequestTime: Date?
     private let minimumRequestInterval: TimeInterval = 1.0
@@ -166,6 +191,8 @@ class APIService {
             }
             
             print("Response status code: \(httpResponse.statusCode)")
+            print("Response headers: \(httpResponse.allHeaderFields)")
+            print("Response body: \(String(data: data, encoding: .utf8) ?? "none")")
             
             // Handle different status codes
             switch httpResponse.statusCode {
@@ -175,35 +202,49 @@ class APIService {
                     return try JSONDecoder().decode(T.self, from: data)
                 } catch {
                     print("Decoding error: \(error)")
+                    print("Failed to decode response: \(String(data: data, encoding: .utf8) ?? "none")")
                     throw APIError.decodingError(error)
                 }
             case 301, 302, 307, 308:
                 // Handle redirects
                 if retryCount < maxRetries {
                     print("Following redirect...")
-                    if let location = httpResponse.allHeaderFields["Location"] as? String,
-                       let newURL = URL(string: location) {
-                        var newRequest = request
-                        newRequest.url = newURL
-                        try await Task.sleep(nanoseconds: UInt64(retryDelay * 1_000_000_000))
-                        return try await performRequest(newRequest, retryCount: retryCount + 1)
+                    if let location = httpResponse.allHeaderFields["Location"] as? String {
+                        print("Redirect location: \(location)")
+                        // Ensure the redirect URL includes the full path
+                        let redirectURL = location.hasPrefix("http") ? location : "\(baseURL)\(location)"
+                        if let newURL = URL(string: redirectURL) {
+                            print("Following redirect to: \(newURL.absoluteString)")
+                            var newRequest = request
+                            newRequest.url = newURL
+                            try await Task.sleep(nanoseconds: UInt64(retryDelay * 1_000_000_000))
+                            return try await performRequest(newRequest, retryCount: retryCount + 1)
+                        }
                     }
                 }
+                print("Redirect error - Max retries reached or invalid redirect URL")
                 throw APIError.redirectError
             case 401:
+                print("Unauthorized - Token may be invalid or expired")
+                print("Response body: \(String(data: data, encoding: .utf8) ?? "none")")
                 throw APIError.unauthorized
             case 429:
+                print("Rate limit exceeded")
                 throw APIError.rateLimitExceeded
             default:
+                print("Server error with status code: \(httpResponse.statusCode)")
+                print("Response body: \(String(data: data, encoding: .utf8) ?? "none")")
                 if let errorResponse = try? JSONDecoder().decode(ErrorResponse.self, from: data) {
                     throw APIError.serverError(errorResponse.error)
                 }
                 throw APIError.serverError("Server error: \(httpResponse.statusCode)")
             }
         } catch let error as APIError {
+            print("API Error occurred: \(error.localizedDescription)")
             throw error
         } catch let error as URLError {
             print("URL Error occurred: \(error.localizedDescription)")
+            print("URL Error code: \(error.code.rawValue)")
             switch error.code {
             case .notConnectedToInternet, .cannotFindHost, .cannotConnectToHost:
                 throw APIError.connectionError
@@ -214,6 +255,7 @@ class APIService {
             }
         } catch {
             print("Unexpected error occurred: \(error)")
+            print("Error type: \(type(of: error))")
             throw APIError.networkError(error)
         }
     }
@@ -237,12 +279,6 @@ class APIService {
         if let token = authToken {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
-        
-        // Add headers to prevent redirect loops
-        request.setValue("no-cache, no-store, must-revalidate", forHTTPHeaderField: "Cache-Control")
-        request.setValue("no-cache", forHTTPHeaderField: "Pragma")
-        request.setValue("0", forHTTPHeaderField: "Expires")
-        request.setValue("keep-alive", forHTTPHeaderField: "Connection")
         
         print("Created request with URL: \(request.url?.absoluteString ?? "nil")")
         return request
