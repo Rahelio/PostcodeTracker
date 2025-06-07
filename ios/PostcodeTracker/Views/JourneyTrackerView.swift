@@ -418,7 +418,7 @@ struct JourneyTrackerView: View {
                 // Clear saved state
                 JourneyState.clear()
                 
-                alertMessage = "Journey completed! Distance: \(String(format: "%.1f", completedJourney.distance_miles)) miles"
+                alertMessage = "Journey completed! Distance: \(String(format: "%.1f", completedJourney.distance_miles ?? 0.0)) miles"
                 showingAlert = true
                 
             } catch {
@@ -457,7 +457,7 @@ struct JourneyTrackerView: View {
                 manualEndPostcode = ""
                 isManualEntry = false
                 
-                alertMessage = "Manual journey created! Distance: \(String(format: "%.1f", journey.distance_miles)) miles"
+                alertMessage = "Manual journey created! Distance: \(String(format: "%.1f", journey.distance_miles ?? 0.0)) miles"
                 showingAlert = true
             } catch {
                 alertMessage = "Error: \(error.localizedDescription)"

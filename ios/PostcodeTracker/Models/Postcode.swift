@@ -43,10 +43,10 @@ struct Postcode: Codable, Identifiable, Hashable {
 struct Journey: Codable, Identifiable {
     let id: Int
     let start_postcode: String
-    let end_postcode: String
-    let distance_miles: Double
+    let end_postcode: String?       // Make optional since it's null when starting
+    let distance_miles: Double?     // Make optional since it's null when starting
     let start_time: String
-    let end_time: String
+    let end_time: String?          // Make optional since it's null when starting
     let is_active: Bool
     let is_manual: Bool
     let start_location: Postcode?

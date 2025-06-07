@@ -33,10 +33,10 @@ from app import app
 from routes import *
 
 if __name__ == "__main__":
-    logger.info("Starting Flask development server on port 5319")
+    logger.info("Starting Flask development server on port 8005")
     run_simple(
         '0.0.0.0',
-        5319,
+        8005,
         app,
         use_reloader=True,
         use_debugger=True,

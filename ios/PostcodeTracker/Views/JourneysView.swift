@@ -437,7 +437,7 @@ struct JourneyRow: View {
             }
             
             VStack(alignment: .leading, spacing: 8) {
-                Text("\(journey.start_postcode) to \(journey.end_postcode)")
+                Text("\(journey.start_postcode) to \(journey.end_postcode ?? "In Progress")")
                     .playfairDisplay(.headline)
                     .foregroundColor(.primary)
                 
@@ -446,19 +446,25 @@ struct JourneyRow: View {
                     .playfairDisplay(.subheadline)
                     .foregroundColor(.secondary)
 
-                let endTimeDate = ISO8601DateFormatter().date(from: journey.end_time) ?? Date()
-                Text("End: \(endTimeDate, formatter: itemFormatter)")
-                    .playfairDisplay(.subheadline)
-                    .foregroundColor(.secondary)
+                if let endTimeString = journey.end_time {
+                    let endTimeDate = ISO8601DateFormatter().date(from: endTimeString) ?? Date()
+                    Text("End: \(endTimeDate, formatter: itemFormatter)")
+                        .playfairDisplay(.subheadline)
+                        .foregroundColor(.secondary)
+                } else {
+                    Text("End: In Progress")
+                        .playfairDisplay(.subheadline)
+                        .foregroundColor(.orange)
+                }
                 
-                Text(String(format: "Distance: %.2f km", journey.distance_miles))
+                Text(String(format: "Distance: %.2f km", journey.distance_miles ?? 0.0))
                     .playfairDisplay(.subheadline)
                     .foregroundColor(.secondary)
             }
             
             Spacer()
             
-            if !isEditing && journey.distance_miles == 0 {
+            if !isEditing && (journey.distance_miles == nil || journey.distance_miles == 0) {
                 Text("Ongoing...")
                     .playfairDisplay(.caption)
                     .foregroundColor(.orange)
