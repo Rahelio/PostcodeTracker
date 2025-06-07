@@ -41,6 +41,19 @@ struct Journey: Codable, Identifiable {
     let is_manual: Bool
     let start_location: Postcode?
     let end_location: Postcode?
+    
+    enum CodingKeys: String, CodingKey {
+        case id
+        case start_postcode
+        case end_postcode
+        case distance_miles
+        case start_time
+        case end_time
+        case is_active
+        case is_manual
+        case start_location
+        case end_location
+    }
 }
 
 // Remove the duplicate Journey state persistence struct definition
