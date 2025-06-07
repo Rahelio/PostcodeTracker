@@ -9,7 +9,6 @@ from server.database import init_db
 from dotenv import load_dotenv
 from server.api.auth import auth_bp
 from server.api.postcodes import postcodes_bp
-from server.api.journeys import journeys_bp
 from werkzeug.serving import WSGIRequestHandler
 
 # Load environment variables from .env file
@@ -40,11 +39,6 @@ def create_app():
     
     @app.after_request
     def after_request(response):
-        # Log request details
-        logger.debug(f"Request path: {request.path}")
-        logger.debug(f"Request method: {request.method}")
-        logger.debug(f"Response status: {response.status_code}")
-        
         # Force HTTP/1.1
         response.headers['Connection'] = 'keep-alive'
         response.headers['Content-Type'] = 'application/json'
@@ -65,7 +59,6 @@ def create_app():
     # Health check endpoint
     @app.route('/api/health')
     def health_check():
-        logger.debug("Health check endpoint called")
         return jsonify({
             'status': 'healthy',
             'database': 'connected'
@@ -74,7 +67,6 @@ def create_app():
     # Root endpoint
     @app.route('/')
     def root():
-        logger.debug("Root endpoint called")
         return jsonify({
             'message': 'Welcome to PostcodeTracker API',
             'version': '1.0'
@@ -91,7 +83,6 @@ def create_app():
     # Import and register blueprints
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(postcodes_bp, url_prefix='/api/postcodes')
-    app.register_blueprint(journeys_bp, url_prefix='/api/journeys')
     
     return app
 
