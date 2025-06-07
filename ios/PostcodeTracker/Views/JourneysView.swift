@@ -464,7 +464,7 @@ struct JourneyRow: View {
             
             Spacer()
             
-            if !isEditing && (journey.distance_miles == nil || journey.distance_miles == 0) {
+            if !isEditing && journey.end_time == nil {
                 Text("Ongoing...")
                     .playfairDisplay(.caption)
                     .foregroundColor(.orange)

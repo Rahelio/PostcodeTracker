@@ -478,13 +478,12 @@ class APIService {
     }
     
     func deleteJourney(journeyId: Int) async throws {
-        let url = URL(string: "\(baseURL)/journeys/\(journeyId)")!
-        var request = URLRequest(url: url)
-        request.httpMethod = "DELETE"
+        // Use the correct endpoint that matches the server implementation
+        var request = try createRequest(path: "/journeys/delete", method: "POST")
         
-        if let token = authToken {
-            request.addValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        }
+        // Create request body with journey_ids array
+        let requestBody = ["journey_ids": [journeyId]]
+        request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
         
         let _: EmptyResponse = try await performRequest(request)
     }
