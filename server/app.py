@@ -9,6 +9,7 @@ from server.database import init_db
 from dotenv import load_dotenv
 from server.api.auth import auth_bp
 from server.api.postcodes import postcodes_bp
+from server.api.journeys import journeys_bp
 from werkzeug.serving import WSGIRequestHandler
 
 # Load environment variables from .env file
@@ -29,7 +30,7 @@ def create_app():
     app = Flask(__name__)
     
     # Configure CORS
-    CORS(app, resources={r"/*": {
+    CORS(app, resources={r"/api/*": {
         "origins": "*",
         "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
         "allow_headers": ["Content-Type", "Authorization"],
@@ -62,7 +63,7 @@ def create_app():
         return response
     
     # Health check endpoint
-    @app.route('/health')
+    @app.route('/api/health')
     def health_check():
         logger.debug("Health check endpoint called")
         return jsonify({
@@ -88,8 +89,9 @@ def create_app():
     init_db()
     
     # Import and register blueprints
-    app.register_blueprint(auth_bp, url_prefix='/auth')
-    app.register_blueprint(postcodes_bp, url_prefix='/postcodes')
+    app.register_blueprint(auth_bp, url_prefix='/api/auth')
+    app.register_blueprint(postcodes_bp, url_prefix='/api/postcodes')
+    app.register_blueprint(journeys_bp, url_prefix='/api/journeys')
     
     return app
 
