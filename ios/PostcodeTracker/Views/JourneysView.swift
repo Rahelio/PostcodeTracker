@@ -228,15 +228,14 @@ struct JourneysView: View {
     }
     
     private func deleteSelectedJourneys() {
+        guard !selectedJourneys.isEmpty else { return }
+        
         isLoading = true
         
         Task {
             do {
-                // Create a copy of selected journeys to track progress
+                // Convert selected journeys set to array
                 let journeysToDelete = Array(selectedJourneys)
-                
-                print("Starting deletion of \(journeysToDelete.count) journeys")
-                print("Selected journey IDs: \(journeysToDelete)")
                 
                 // Print current journeys for debugging
                 print("Current journeys in list:")
@@ -244,54 +243,52 @@ struct JourneysView: View {
                     print("Journey ID: \(journey.id), Start: \(journey.start_postcode), End: \(journey.end_postcode)")
                 }
                 
-                // Delete all selected journeys in one request
-                do {
-                    print("Attempting to delete journeys: \(journeysToDelete)")
-                    try await APIService.shared.deleteJourney(ids: journeysToDelete)
-                    print("Successfully deleted journeys")
-                    
-                    await MainActor.run {
-                        // Remove all selected journeys from the list
-                        journeys.removeAll { journey in
-                            journeysToDelete.contains(journey.id)
-                        }
-                        
-                        // Clear selection
-                        selectedJourneys.removeAll()
-                        isEditing = false
-                        isLoading = false
-                        
-                        // Show success message
-                        alertMessage = "Successfully deleted \(journeysToDelete.count) journey(s)"
-                        showingAlert = true
-                        
-                        // Refresh the journey list
-                        loadJourneys()
-                    }
-                } catch APIError.unauthorized {
-                    print("Authentication error while deleting journeys")
-                    await MainActor.run {
-                        alertMessage = "Your session has expired. Please log in again."
-                        showingAlert = true
-                        isLoading = false
-                    }
-                } catch let error as APIError {
-                    print("API Error while deleting journeys: \(error.localizedDescription)")
-                    await MainActor.run {
-                        alertMessage = "Failed to delete journeys: \(error.localizedDescription)"
-                        showingAlert = true
-                        isLoading = false
-                    }
-                } catch {
-                    print("Unexpected error while deleting journeys: \(error.localizedDescription)")
-                    await MainActor.run {
-                        alertMessage = "An unexpected error occurred: \(error.localizedDescription)"
-                        showingAlert = true
-                        isLoading = false
+                // Delete each journey individually
+                for journeyId in journeysToDelete {
+                    do {
+                        print("Attempting to delete journey: \(journeyId)")
+                        try await APIService.shared.deleteJourney(journeyId: journeyId)
+                        print("Successfully deleted journey \(journeyId)")
+                    } catch {
+                        print("Error deleting journey \(journeyId): \(error.localizedDescription)")
+                        throw error
                     }
                 }
+                
+                await MainActor.run {
+                    // Remove all selected journeys from the list
+                    journeys.removeAll { journey in
+                        journeysToDelete.contains(journey.id)
+                    }
+                    
+                    // Clear selection
+                    selectedJourneys.removeAll()
+                    isEditing = false
+                    isLoading = false
+                    
+                    // Show success message
+                    alertMessage = "Successfully deleted \(journeysToDelete.count) journey(s)"
+                    showingAlert = true
+                    
+                    // Refresh the journey list
+                    loadJourneys()
+                }
+            } catch APIError.unauthorized {
+                print("Authentication error while deleting journeys")
+                await MainActor.run {
+                    alertMessage = "Your session has expired. Please log in again."
+                    showingAlert = true
+                    isLoading = false
+                }
+            } catch let error as APIError {
+                print("API Error while deleting journeys: \(error.localizedDescription)")
+                await MainActor.run {
+                    alertMessage = "Failed to delete journeys: \(error.localizedDescription)"
+                    showingAlert = true
+                    isLoading = false
+                }
             } catch {
-                print("Unexpected error during deletion process: \(error)")
+                print("Unexpected error while deleting journeys: \(error.localizedDescription)")
                 await MainActor.run {
                     alertMessage = "An unexpected error occurred: \(error.localizedDescription)"
                     showingAlert = true
@@ -411,13 +408,15 @@ struct JourneysList: View {
     }
     
     private func deleteItems(at offsets: IndexSet) {
-         // Convert index set to journey IDs
+        // Convert index set to journey IDs and add them to selected journeys
         let journeysToDelete = offsets.map { groupedJourneys.flatMap { $0.1 }[$0].id }
         
-        // Add to selected journeys set and then call the main delete function
+        // Add to selected journeys set
         for id in journeysToDelete {
             selectedJourneys.insert(id)
         }
+        
+        // Call the parent's delete function
         onDelete()
     }
 }
@@ -579,9 +578,17 @@ struct AddManualJourneyView: View {
         
         Task {
             do {
-                let journey = try await APIService.shared.createManualJourney(
+                // First, start the journey
+                let journeyId = try await APIService.shared.startJourney(
                     startPostcode: startPostcode.postcode,
-                    endPostcode: endPostcode.postcode
+                    isManual: true
+                )
+                
+                // Then end it with the end postcode
+                let journey = try await APIService.shared.endJourney(
+                    journeyId: journeyId,
+                    endPostcode: endPostcode.postcode,
+                    distanceMiles: 0.0  // The server will calculate the distance
                 )
                 
                 await MainActor.run {

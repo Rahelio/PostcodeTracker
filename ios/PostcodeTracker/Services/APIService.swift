@@ -98,6 +98,18 @@ struct PostcodeResponse: Codable {
 // Add response struct for starting a journey
 struct StartJourneyResponse: Codable {
     let journey_id: Int
+    let message: String
+}
+
+// Enhanced response struct for starting a tracked journey with postcode data
+struct StartTrackedJourneyResponse: Codable {
+    let success: Bool
+    let message: String
+    let journey_id: Int
+    let start_postcode: String
+    let start_latitude: Double
+    let start_longitude: Double
+    let journey: Journey
 }
 
 // Add response wrapper structs
@@ -107,7 +119,6 @@ struct JourneyResponse: Codable {
 }
 
 struct EndJourneyResponse: Codable {
-    let success: Bool
     let message: String
     let journey: Journey
 }
@@ -202,61 +213,24 @@ class APIService {
                     return try JSONDecoder().decode(T.self, from: data)
                 } catch {
                     print("Decoding error: \(error)")
-                    print("Failed to decode response: \(String(data: data, encoding: .utf8) ?? "none")")
                     throw APIError.decodingError(error)
                 }
-            case 301, 302, 307, 308:
-                // Handle redirects
-                if retryCount < maxRetries {
-                    print("Following redirect...")
-                    if let location = httpResponse.allHeaderFields["Location"] as? String {
-                        print("Redirect location: \(location)")
-                        // Ensure the redirect URL includes the full path
-                        let redirectURL = location.hasPrefix("http") ? location : "\(baseURL)\(location)"
-                        if let newURL = URL(string: redirectURL) {
-                            print("Following redirect to: \(newURL.absoluteString)")
-                            var newRequest = request
-                            newRequest.url = newURL
-                            try await Task.sleep(nanoseconds: UInt64(retryDelay * 1_000_000_000))
-                            return try await performRequest(newRequest, retryCount: retryCount + 1)
-                        }
-                    }
-                }
-                print("Redirect error - Max retries reached or invalid redirect URL")
-                throw APIError.redirectError
             case 401:
-                print("Unauthorized - Token may be invalid or expired")
-                print("Response body: \(String(data: data, encoding: .utf8) ?? "none")")
                 throw APIError.unauthorized
             case 429:
-                print("Rate limit exceeded")
                 throw APIError.rateLimitExceeded
-            default:
-                print("Server error with status code: \(httpResponse.statusCode)")
-                print("Response body: \(String(data: data, encoding: .utf8) ?? "none")")
-                if let errorResponse = try? JSONDecoder().decode(ErrorResponse.self, from: data) {
-                    throw APIError.serverError(errorResponse.error)
-                }
+            case 500...599:
                 throw APIError.serverError("Server error: \(httpResponse.statusCode)")
-            }
-        } catch let error as APIError {
-            print("API Error occurred: \(error.localizedDescription)")
-            throw error
-        } catch let error as URLError {
-            print("URL Error occurred: \(error.localizedDescription)")
-            print("URL Error code: \(error.code.rawValue)")
-            switch error.code {
-            case .notConnectedToInternet, .cannotFindHost, .cannotConnectToHost:
-                throw APIError.connectionError
-            case .httpTooManyRedirects:
-                throw APIError.redirectError
             default:
-                throw APIError.networkError(error)
+                throw APIError.unknown
             }
         } catch {
-            print("Unexpected error occurred: \(error)")
-            print("Error type: \(type(of: error))")
-            throw APIError.networkError(error)
+            if retryCount < maxRetries {
+                print("Request failed, retrying... (Attempt \(retryCount + 1) of \(maxRetries))")
+                try await Task.sleep(nanoseconds: UInt64(retryDelay * 1_000_000_000))
+                return try await performRequest(request, retryCount: retryCount + 1)
+            }
+            throw error
         }
     }
     
@@ -455,34 +429,10 @@ class APIService {
     // MARK: - Journeys
     
     func getJourneys() async throws -> [Journey] {
-        let url = URL(string: "\(baseURL)/journeys/")!
-        var request = URLRequest(url: url)
-        request.httpMethod = "GET"
+        let request = try createRequest(path: "/journeys", method: "GET")
         
-        if let token = authToken {
-            request.addValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        }
-        
-        let (data, response) = try await performRequest(request)
-        
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw APIError.invalidResponse
-        }
-        
-        switch httpResponse.statusCode {
-        case 200:
-            do {
-                let journeys = try JSONDecoder().decode([Journey].self, from: data)
-                return journeys
-            } catch {
-                print("Decoding error: \(error)")
-                throw APIError.decodingError(error)
-            }
-        case 401:
-            throw APIError.unauthorized
-        default:
-            throw APIError.serverError("Unexpected status code: \(httpResponse.statusCode)")
-        }
+        let response: JourneyResponse = try await performRequest(request)
+        return response.journeys
     }
     
     func startJourney(startPostcode: String, isManual: Bool = false) async throws -> Int {
@@ -502,32 +452,8 @@ class APIService {
         
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         
-        let (data, response) = try await performRequest(request)
-        
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw APIError.invalidResponse
-        }
-        
-        switch httpResponse.statusCode {
-        case 201:
-            do {
-                let response = try JSONDecoder().decode(StartJourneyResponse.self, from: data)
-                return response.journey_id
-            } catch {
-                throw APIError.decodingError(error)
-            }
-        case 400:
-            do {
-                let errorResponse = try JSONDecoder().decode(ErrorResponse.self, from: data)
-                throw APIError.serverError(errorResponse.error)
-            } catch {
-                throw APIError.serverError("Failed to start journey")
-            }
-        case 401:
-            throw APIError.unauthorized
-        default:
-            throw APIError.serverError("Unexpected status code: \(httpResponse.statusCode)")
-        }
+        let response: StartJourneyResponse = try await performRequest(request)
+        return response.journey_id
     }
     
     func endJourney(journeyId: Int, endPostcode: String, distanceMiles: Double) async throws -> Journey {
@@ -547,34 +473,8 @@ class APIService {
         
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         
-        let (data, response) = try await performRequest(request)
-        
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw APIError.invalidResponse
-        }
-        
-        switch httpResponse.statusCode {
-        case 200:
-            do {
-                let response = try JSONDecoder().decode(EndJourneyResponse.self, from: data)
-                return response.journey
-            } catch {
-                throw APIError.decodingError(error)
-            }
-        case 400:
-            do {
-                let errorResponse = try JSONDecoder().decode(ErrorResponse.self, from: data)
-                throw APIError.serverError(errorResponse.error)
-            } catch {
-                throw APIError.serverError("Failed to end journey")
-            }
-        case 401:
-            throw APIError.unauthorized
-        case 404:
-            throw APIError.serverError("Journey not found")
-        default:
-            throw APIError.serverError("Unexpected status code: \(httpResponse.statusCode)")
-        }
+        let response: EndJourneyResponse = try await performRequest(request)
+        return response.journey
     }
     
     func deleteJourney(journeyId: Int) async throws {
@@ -586,23 +486,11 @@ class APIService {
             request.addValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
         
-        let (_, response) = try await performRequest(request)
-        
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw APIError.invalidResponse
-        }
-        
-        switch httpResponse.statusCode {
-        case 200:
-            return
-        case 401:
-            throw APIError.unauthorized
-        case 404:
-            throw APIError.serverError("Journey not found")
-        default:
-            throw APIError.serverError("Unexpected status code: \(httpResponse.statusCode)")
-        }
+        let _: EmptyResponse = try await performRequest(request)
     }
+    
+    // Add this struct for empty responses
+    private struct EmptyResponse: Codable {}
     
     func exportJourneys(journeyIds: [Int], format: String) async throws -> (Data, URLResponse) {
         print("Exporting journeys: \(journeyIds) in \(format) format")
@@ -639,7 +527,7 @@ class APIService {
     }
     
     // Function to start a tracked journey
-    func startTrackedJourney(latitude: Double, longitude: Double) async throws -> Int? {
+    func startTrackedJourney(latitude: Double, longitude: Double) async throws -> (journeyId: Int, postcode: Postcode)? {
         var request = try createRequest(path: "/journey/start", method: "POST")
         
         let body = ["latitude": latitude, "longitude": longitude]
@@ -659,8 +547,19 @@ class APIService {
         print("Start Tracked Journey Response Status: \(httpResponse.statusCode)")
         
         if httpResponse.statusCode == 201 {
-            let result = try JSONDecoder().decode(StartJourneyResponse.self, from: data)
-            return result.journey_id
+            let result = try JSONDecoder().decode(StartTrackedJourneyResponse.self, from: data)
+            
+            // Create a Postcode object from the response data
+            let postcode = Postcode(
+                id: 0, // Temporary ID for tracked postcodes
+                name: result.start_postcode,
+                postcode: result.start_postcode,
+                latitude: result.start_latitude,
+                longitude: result.start_longitude,
+                created_at: ISO8601DateFormatter().string(from: Date())
+            )
+            
+            return (journeyId: result.journey_id, postcode: postcode)
         } else if httpResponse.statusCode == 400 { // Handle 400 specifically for invalid postcode
              print("Start Tracked Journey: Received 400, invalid postcode.")
              return nil // Return nil if postcode is not found or invalid
@@ -674,15 +573,13 @@ class APIService {
     
     // Function to end a tracked journey
     func endTrackedJourney(journeyId: Int, latitude: Double, longitude: Double) async throws -> Journey {
-        // First, get the postcode from coordinates
-        guard let postcode = try await getPostcodeFromCoordinates(latitude: latitude, longitude: longitude) else {
-            throw APIError.serverError("Could not determine postcode for the provided coordinates")
-        }
-        
-        // Now end the journey with the postcode
+        // Send coordinates directly to server - let server handle postcode lookup
         var request = try createRequest(path: "/journey/end", method: "POST")
         
-        let body = ["end_postcode": postcode.postcode] as [String : Any]
+        let body = [
+            "latitude": latitude,
+            "longitude": longitude
+        ] as [String : Any]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         
         print("End Tracked Journey Request URL: \(request.url?.absoluteString ?? "")")

@@ -111,17 +111,33 @@ def start_journey():
                 'success': False, 
                 'message': 'You already have an active journey in progress'
             }), 400
+        
+        # Get coordinates for the postcode (this will use cache if available)
+        postcode_coords = PostcodeService.get_postcode_coordinates(start_postcode)
+        if not postcode_coords:
+            logger.error(f"Could not get coordinates for postcode: {start_postcode}")
+            return jsonify({
+                'success': False,
+                'message': 'Could not get coordinates for postcode'
+            }), 400
             
-        # Create new journey
-        journey = Journey(start_postcode=start_postcode)
+        # Create new journey with coordinates stored
+        journey = Journey(
+            start_postcode=start_postcode,
+            start_latitude=postcode_coords['latitude'],
+            start_longitude=postcode_coords['longitude']
+        )
         db.session.add(journey)
         db.session.commit()
         
         return jsonify({
             'success': True, 
             'message': 'Journey started successfully',
-            'journey_id': journey.id, # Return journey_id
-            'journey': journey.to_dict() # Optionally return full journey details
+            'journey_id': journey.id,
+            'start_postcode': start_postcode,
+            'start_latitude': postcode_coords['latitude'],
+            'start_longitude': postcode_coords['longitude'],
+            'journey': journey.to_dict()
         }), 201 # Use 201 Created status code
         
     except Exception as e:
@@ -134,11 +150,27 @@ def end_journey():
     """API endpoint to end an active journey."""
     try:
         data = request.get_json()
-        end_postcode = data.get('end_postcode', '').strip().upper().replace(" ", "")
         
-        # Validate postcode
-        if not PostcodeService.validate_postcode(end_postcode):
-            return jsonify({'success': False, 'message': 'Invalid UK postcode format'}), 400
+        # Handle both coordinate-based and postcode-based requests
+        if 'latitude' in data and 'longitude' in data:
+            # New coordinate-based approach
+            latitude = data.get('latitude')
+            longitude = data.get('longitude')
+            
+            # Get postcode from coordinates
+            end_postcode = PostcodeService.get_postcode_from_coordinates(latitude, longitude)
+            if not end_postcode:
+                return jsonify({
+                    'success': False,
+                    'message': 'Could not determine UK postcode for the provided coordinates'
+                }), 400
+        else:
+            # Legacy postcode-based approach
+            end_postcode = data.get('end_postcode', '').strip().upper().replace(" ", "")
+            
+            # Validate postcode
+            if not PostcodeService.validate_postcode(end_postcode):
+                return jsonify({'success': False, 'message': 'Invalid UK postcode format'}), 400
             
         # Find active journey
         journey = Journey.query.filter_by(end_time=None).first()
@@ -147,19 +179,37 @@ def end_journey():
                 'success': False, 
                 'message': 'No active journey found'
             }), 404
+        
+        # Get coordinates for end postcode (uses cache if available)
+        end_coords = PostcodeService.get_postcode_coordinates(end_postcode)
+        if not end_coords:
+            return jsonify({
+                'success': False, 
+                'message': 'Could not get coordinates for end postcode'
+            }), 400
             
-        # Calculate distance
-        distance = PostcodeService.calculate_distance(journey.start_postcode, end_postcode)
+        # Calculate distance using stored start coordinates and cached end coordinates
+        if journey.start_latitude and journey.start_longitude:
+            distance = PostcodeService.calculate_distance_from_coordinates(
+                journey.start_latitude, journey.start_longitude,
+                end_coords['latitude'], end_coords['longitude']
+            )
+        else:
+            # Fallback to old method if start coordinates not stored
+            distance = PostcodeService.calculate_distance(journey.start_postcode, end_postcode)
+        
         if distance is None:
             return jsonify({
                 'success': False, 
                 'message': 'Could not calculate distance between postcodes'
             }), 400
             
-        # Update journey
+        # Update journey with end data
         journey.end_postcode = end_postcode
         journey.end_time = datetime.utcnow()
         journey.distance_miles = distance
+        journey.end_latitude = end_coords['latitude']
+        journey.end_longitude = end_coords['longitude']
         db.session.commit()
         
         return jsonify({

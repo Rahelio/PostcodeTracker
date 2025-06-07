@@ -331,29 +331,19 @@ struct JourneyTrackerView: View {
                 let location = try await locationManager.requestLocation()
                 print("Location obtained for start: Latitude = \(location.coordinate.latitude), Longitude = \(location.coordinate.longitude)")
                 
-                // Call API to start the journey and get the ID
+                // Call API to start the journey and get both ID and postcode data
                 print("Calling API to start journey...")
                 
-                // Check if the API returned a journey ID
-                if let journeyId = try await APIService.shared.startTrackedJourney(
+                // Check if the API returned journey data
+                if let result = try await APIService.shared.startTrackedJourney(
                     latitude: location.coordinate.latitude,
                     longitude: location.coordinate.longitude
                 ) {
-                    currentJourneyId = journeyId // Store the journey ID
+                    currentJourneyId = result.journeyId // Store the journey ID
+                    startPostcode = result.postcode     // Use postcode from API response
                     isRecording = true
                     
-                    // Optionally fetch start postcode after starting journey if needed for display
-                    // or rely on the server response for initial details
-                    if let postcode = try await APIService.shared.getPostcodeFromCoordinates(
-                        latitude: location.coordinate.latitude,
-                        longitude: location.coordinate.longitude
-                    ) {
-                         startPostcode = postcode
-                         alertMessage = "Journey started! Start postcode: \(postcode.postcode)"
-                    } else {
-                         startPostcode = nil
-                         alertMessage = "Journey started! Could not determine start postcode."
-                    }
+                    alertMessage = "Journey started! Start postcode: \(result.postcode.postcode)"
                     showingAlert = true
 
                     // Save state
@@ -444,9 +434,17 @@ struct JourneyTrackerView: View {
         
         Task {
             do {
-                let journey = try await APIService.shared.createManualJourney(
+                // First, start the journey
+                let journeyId = try await APIService.shared.startJourney(
                     startPostcode: manualStartPostcode,
-                    endPostcode: manualEndPostcode
+                    isManual: true
+                )
+                
+                // Then end it with the end postcode
+                let journey = try await APIService.shared.endJourney(
+                    journeyId: journeyId,
+                    endPostcode: manualEndPostcode,
+                    distanceMiles: 0.0  // The server will calculate the distance
                 )
                 
                 // Update UI with journey details

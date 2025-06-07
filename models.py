@@ -32,6 +32,36 @@ class Postcode(db.Model):
             'created_at': self.created_at.strftime('%Y-%m-%d %H:%M:%S') if self.created_at else None
         }
 
+class PostcodeCache(db.Model):
+    """Model for caching postcode lookup data to avoid repeated API calls."""
+    __tablename__ = 'postcode_cache'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    postcode = db.Column(db.String(10), unique=True, nullable=False, index=True)
+    latitude = db.Column(db.Float, nullable=False)
+    longitude = db.Column(db.Float, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    last_accessed = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    def __init__(self, **kwargs):
+        """Initialize a PostcodeCache instance with keyword arguments."""
+        super(PostcodeCache, self).__init__(**kwargs)
+        
+    def __repr__(self) -> str:
+        return f"<PostcodeCache {self.postcode}: {self.latitude}, {self.longitude}>"
+        
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert cached postcode to a dictionary for JSON serialization."""
+        return {
+            'postcode': self.postcode,
+            'latitude': self.latitude,
+            'longitude': self.longitude
+        }
+    
+    def update_access_time(self):
+        """Update the last accessed time."""
+        self.last_accessed = datetime.utcnow()
+
 class Journey(db.Model):
     """Model for storing journey information between UK postcodes."""
     id = db.Column(db.Integer, primary_key=True)
@@ -41,6 +71,12 @@ class Journey(db.Model):
     end_time = db.Column(db.DateTime, nullable=True)
     distance_miles = db.Column(db.Float, nullable=True)
     is_manual = db.Column(db.Boolean, default=False)
+    
+    # Store coordinates to avoid repeated API lookups
+    start_latitude = db.Column(db.Float, nullable=True)
+    start_longitude = db.Column(db.Float, nullable=True)
+    end_latitude = db.Column(db.Float, nullable=True) 
+    end_longitude = db.Column(db.Float, nullable=True)
     
     # Optional references to saved locations
     start_location_id = db.Column(db.Integer, db.ForeignKey('saved_location.id'), nullable=True)
@@ -69,7 +105,11 @@ class Journey(db.Model):
             'is_active': self.end_time is None,
             'is_manual': self.is_manual,
             'start_location': self.start_location.to_dict() if self.start_location else None,
-            'end_location': self.end_location.to_dict() if self.end_location else None
+            'end_location': self.end_location.to_dict() if self.end_location else None,
+            'start_latitude': self.start_latitude,
+            'start_longitude': self.start_longitude,
+            'end_latitude': self.end_latitude,
+            'end_longitude': self.end_longitude
         }
 
 class User(db.Model):
