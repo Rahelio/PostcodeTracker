@@ -1,66 +1,6 @@
 from datetime import datetime
 from app import db
-from typing import Dict, Any, Optional
-
-class Postcode(db.Model):
-    """Model for storing saved locations with names and UK postcodes."""
-    __tablename__ = 'saved_location'
-    
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False)
-    postcode = db.Column(db.String(10), nullable=False)
-    latitude = db.Column(db.Float)
-    longitude = db.Column(db.Float)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    
-    def __init__(self, **kwargs):
-        """Initialize a Postcode instance with keyword arguments."""
-        super(Postcode, self).__init__(**kwargs)
-        
-    def __repr__(self) -> str:
-        """String representation of a Postcode instance."""
-        return f"<Postcode {self.id}: {self.name} ({self.postcode})>"
-        
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert postcode to a dictionary for JSON serialization."""
-        return {
-            'id': self.id,
-            'name': self.name,
-            'postcode': self.postcode,
-            'latitude': self.latitude,
-            'longitude': self.longitude,
-            'created_at': self.created_at.strftime('%Y-%m-%d %H:%M:%S') if self.created_at else None
-        }
-
-class PostcodeCache(db.Model):
-    """Model for caching postcode lookup data to avoid repeated API calls."""
-    __tablename__ = 'postcode_cache'
-    
-    id = db.Column(db.Integer, primary_key=True)
-    postcode = db.Column(db.String(10), unique=True, nullable=False, index=True)
-    latitude = db.Column(db.Float, nullable=False)
-    longitude = db.Column(db.Float, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    last_accessed = db.Column(db.DateTime, default=datetime.utcnow)
-    
-    def __init__(self, **kwargs):
-        """Initialize a PostcodeCache instance with keyword arguments."""
-        super(PostcodeCache, self).__init__(**kwargs)
-        
-    def __repr__(self) -> str:
-        return f"<PostcodeCache {self.postcode}: {self.latitude}, {self.longitude}>"
-        
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert cached postcode to a dictionary for JSON serialization."""
-        return {
-            'postcode': self.postcode,
-            'latitude': self.latitude,
-            'longitude': self.longitude
-        }
-    
-    def update_access_time(self):
-        """Update the last accessed time."""
-        self.last_accessed = datetime.utcnow()
+from typing import Dict, Any
 
 class Journey(db.Model):
     """Model for storing journey information between UK postcodes."""
@@ -73,29 +13,13 @@ class Journey(db.Model):
     start_time = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     end_time = db.Column(db.DateTime, nullable=True)
     distance_miles = db.Column(db.Float, nullable=True)
-<<<<<<< HEAD
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
-=======
-    is_manual = db.Column(db.Boolean, default=False)
     
-    # Store coordinates to avoid repeated API lookups
+    # Store coordinates for mapping and distance calculations
     start_latitude = db.Column(db.Float, nullable=True)
     start_longitude = db.Column(db.Float, nullable=True)
     end_latitude = db.Column(db.Float, nullable=True) 
     end_longitude = db.Column(db.Float, nullable=True)
-    
-    # Optional references to saved locations
-    start_location_id = db.Column(db.Integer, db.ForeignKey('saved_location.id'), nullable=True)
-    end_location_id = db.Column(db.Integer, db.ForeignKey('saved_location.id'), nullable=True)
-    
-    # Relationships
-    start_location = db.relationship('Postcode', foreign_keys=[start_location_id])
-    end_location = db.relationship('Postcode', foreign_keys=[end_location_id])
-    
-    def __init__(self, **kwargs):
-        """Initialize a Journey instance with keyword arguments."""
-        super(Journey, self).__init__(**kwargs)
->>>>>>> d0761ee184fabf1bb39d37c6c7d01a5ed69b52c2
     
     def __repr__(self) -> str:
         return f'<Journey {self.id}: {self.start_postcode} to {self.end_postcode}>'
@@ -110,17 +34,11 @@ class Journey(db.Model):
             'end_time': self.end_time.isoformat() if self.end_time else None,
             'distance_miles': self.distance_miles,
             'is_active': self.end_time is None,
-<<<<<<< HEAD
-            'user_id': self.user_id
-=======
-            'is_manual': self.is_manual,
-            'start_location': self.start_location.to_dict() if self.start_location else None,
-            'end_location': self.end_location.to_dict() if self.end_location else None,
+            'user_id': self.user_id,
             'start_latitude': self.start_latitude,
             'start_longitude': self.start_longitude,
             'end_latitude': self.end_latitude,
             'end_longitude': self.end_longitude
->>>>>>> d0761ee184fabf1bb39d37c6c7d01a5ed69b52c2
         }
 
 class User(db.Model):
