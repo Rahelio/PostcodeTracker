@@ -9,6 +9,7 @@ from server.database import init_db
 from dotenv import load_dotenv
 from server.api.auth import auth_bp
 from server.api.postcodes import postcodes_bp
+from server.api.journeys import journeys_bp
 from werkzeug.serving import WSGIRequestHandler
 
 # Load environment variables from .env file
@@ -83,6 +84,7 @@ def create_app():
     # Import and register blueprints
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(postcodes_bp, url_prefix='/api/postcodes')
+    app.register_blueprint(journeys_bp, url_prefix='/api/journeys')
     
     return app
 

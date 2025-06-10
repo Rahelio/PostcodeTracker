@@ -27,20 +27,43 @@ struct Postcode: Codable, Identifiable, Hashable {
         self.longitude = nil
         self.created_at = ISO8601DateFormatter().string(from: Date())
     }
+    
+    // Add comprehensive initializer for API response data
+    init(id: Int, name: String, postcode: String, latitude: Double?, longitude: Double?, created_at: String?) {
+        self.id = id
+        self.name = name
+        self.postcode = postcode
+        self.latitude = latitude
+        self.longitude = longitude
+        self.created_at = created_at
+    }
 }
 
 // MARK: - Journey Model
 struct Journey: Codable, Identifiable {
     let id: Int
     let start_postcode: String
-    let end_postcode: String
-    let distance_miles: Double
+    let end_postcode: String?       // Make optional since it's null when starting
+    let distance_miles: Double?     // Make optional since it's null when starting
     let start_time: String
-    let end_time: String
+    let end_time: String?          // Make optional since it's null when starting
     let is_active: Bool
     let is_manual: Bool
     let start_location: Postcode?
     let end_location: Postcode?
+    
+    enum CodingKeys: String, CodingKey {
+        case id
+        case start_postcode
+        case end_postcode
+        case distance_miles
+        case start_time
+        case end_time
+        case is_active
+        case is_manual
+        case start_location
+        case end_location
+    }
 }
 
 // Remove the duplicate Journey state persistence struct definition

@@ -266,6 +266,190 @@ struct JourneyTrackerView: View {
                     await journeyManager.checkActiveJourney()
                 }
             }
+<<<<<<< HEAD
+=======
+            .onDisappear {
+                locationManager.stopUpdatingLocation()
+                // Save journey state
+                if isRecording {
+                    let state = JourneyState(
+                        isRecording: isRecording,
+                        startPostcode: startPostcode,
+                        endPostcode: endPostcode,
+                        distance: distance,
+                        startTime: Date(),
+                        journeyId: currentJourneyId
+                    )
+                    JourneyState.save(state)
+                } else {
+                    JourneyState.clear()
+                }
+            }
+        }
+        .navigationViewStyle(.stack)
+    }
+    
+    private func startJourney() {
+        isLoading = true
+        
+        // Begin background task
+        backgroundTask = UIApplication.shared.beginBackgroundTask { [self] in
+            endBackgroundTask()
+        }
+        
+        Task {
+            defer {
+                isLoading = false
+                endBackgroundTask()
+            }
+            
+            do {
+                // Get location
+                print("Attempting to get current location for start...")
+                let location = try await locationManager.requestLocation()
+                print("Location obtained for start: Latitude = \(location.coordinate.latitude), Longitude = \(location.coordinate.longitude)")
+                
+                // Call API to start the journey and get both ID and postcode data
+                print("Calling API to start journey...")
+                
+                // Check if the API returned journey data
+                if let result = try await APIService.shared.startTrackedJourney(
+                    latitude: location.coordinate.latitude,
+                    longitude: location.coordinate.longitude
+                ) {
+                    currentJourneyId = result.journeyId // Store the journey ID
+                    startPostcode = result.postcode     // Use postcode from API response
+                    isRecording = true
+                    
+                    alertMessage = "Journey started! Start postcode: \(result.postcode.postcode)"
+                    showingAlert = true
+
+                    // Save state
+                    let state = JourneyState(
+                        isRecording: true,
+                        startPostcode: startPostcode,
+                        endPostcode: nil,
+                        distance: nil,
+                        startTime: Date(),
+                        journeyId: currentJourneyId
+                    )
+                    JourneyState.save(state)
+                } else {
+                    // Server returned nil, meaning postcode was not found for start location
+                    print("API returned nil for start tracked journey. Postcode not found.")
+                    alertMessage = "Could not determine your starting postcode. Please try again in a different location."
+                    showingAlert = true
+                    // Do not start recording or save state if journey couldn't be started on server
+                }
+                
+            } catch { // This catch block would also show an alert, but likely a different message
+                print("Error in startJourney task: \(error.localizedDescription)")
+                alertMessage = "Error starting journey: \(error.localizedDescription)"
+                showingAlert = true
+            }
+        }
+    }
+    
+    private func endJourney() {
+        guard isRecording, let journeyId = currentJourneyId else {
+            alertMessage = "No active journey to end."
+            showingAlert = true
+            return
+        }
+        
+        isLoading = true
+        
+        // Begin background task
+        backgroundTask = UIApplication.shared.beginBackgroundTask { [self] in
+            endBackgroundTask()
+        }
+        
+        Task {
+            defer {
+                isLoading = false
+                endBackgroundTask()
+            }
+            
+            do {
+                // Get end location
+                print("Attempting to get current location for end...")
+                let location = try await locationManager.requestLocation()
+                print("Location obtained for end: Latitude = \(location.coordinate.latitude), Longitude = \(location.coordinate.longitude)")
+                
+                // Call API to end the journey
+                print("Calling API to end journey with ID: \(journeyId)...")
+                let completedJourney = try await APIService.shared.endTrackedJourney(
+                    journeyId: journeyId,
+                    latitude: location.coordinate.latitude,
+                    longitude: location.coordinate.longitude
+                )
+                
+                // Update UI with completed journey details
+                startPostcode = completedJourney.start_location
+                endPostcode = completedJourney.end_location
+                distance = completedJourney.distance_miles
+                
+                // Reset for next journey
+                isRecording = false
+                currentJourneyId = nil // Clear journey ID
+                
+                // Clear saved state
+                JourneyState.clear()
+                
+                alertMessage = "Journey completed! Distance: \(String(format: "%.1f", completedJourney.distance_miles ?? 0.0)) miles"
+                showingAlert = true
+                
+            } catch {
+                print("Error in endJourney task: \(error.localizedDescription)")
+                alertMessage = "Error ending journey: \(error.localizedDescription)"
+                showingAlert = true
+            }
+        }
+    }
+    
+    private func createManualJourney() {
+        isLoading = true
+        
+        Task {
+            do {
+                // First, start the journey
+                let journeyId = try await APIService.shared.startJourney(
+                    startPostcode: manualStartPostcode,
+                    isManual: true
+                )
+                
+                // Then end it with the end postcode
+                let journey = try await APIService.shared.endJourney(
+                    journeyId: journeyId,
+                    endPostcode: manualEndPostcode,
+                    distanceMiles: 0.0  // The server will calculate the distance
+                )
+                
+                // Update UI with journey details
+                startPostcode = journey.start_location
+                endPostcode = journey.end_location
+                distance = journey.distance_miles
+                
+                // Clear manual entry fields
+                manualStartPostcode = ""
+                manualEndPostcode = ""
+                isManualEntry = false
+                
+                alertMessage = "Manual journey created! Distance: \(String(format: "%.1f", journey.distance_miles ?? 0.0)) miles"
+                showingAlert = true
+            } catch {
+                alertMessage = "Error: \(error.localizedDescription)"
+                showingAlert = true
+            }
+            isLoading = false
+        }
+    }
+    
+    private func endBackgroundTask() {
+        if backgroundTask != .invalid {
+            UIApplication.shared.endBackgroundTask(backgroundTask)
+            backgroundTask = .invalid
+>>>>>>> d0761ee184fabf1bb39d37c6c7d01a5ed69b52c2
         }
     }
 }
