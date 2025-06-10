@@ -10,7 +10,7 @@ struct APIResponse<T: Codable>: Codable {
 
 // MARK: - Response Models
 // Updated to match server API v2.0 - using "token" field
-struct AuthResponse: Codable {
+struct AuthResponseV2: Codable {
     let success: Bool
     let message: String
     let token: String?
@@ -173,8 +173,15 @@ class APIService: ObservableObject {
             // Decode response
             do {
                 let decoder = JSONDecoder()
-                return try decoder.decode(responseType, from: data)
+                print("About to decode response data as type: \(responseType)")
+                if let responseString = String(data: data, encoding: .utf8) {
+                    print("Raw JSON being decoded: \(responseString)")
+                }
+                let result = try decoder.decode(responseType, from: data)
+                print("Successfully decoded response as: \(type(of: result))")
+                return result
             } catch {
+                print("JSON Decoding failed for type \(responseType): \(error)")
                 throw APIError.decodingError(error)
             }
             
@@ -186,7 +193,7 @@ class APIService: ObservableObject {
     }
     
     // MARK: - Authentication
-    func register(username: String, password: String) async throws -> AuthResponse {
+    func register(username: String, password: String) async throws -> AuthResponseV2 {
         var request = try createRequest(for: "auth/register", method: "POST")
         
         let body = [
@@ -196,7 +203,7 @@ class APIService: ObservableObject {
         
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         
-        let response = try await performRequest(request, responseType: AuthResponse.self)
+        let response = try await performRequest(request, responseType: AuthResponseV2.self)
         
         if response.success, let token = response.token {
             setAuthToken(token)
@@ -205,7 +212,8 @@ class APIService: ObservableObject {
         return response
     }
     
-    func login(username: String, password: String) async throws -> AuthResponse {
+    func login(username: String, password: String) async throws -> AuthResponseV2 {
+        print("🚀 NEW LOGIN METHOD CALLED - If you see this, the new code is working!")
         var request = try createRequest(for: "auth/login", method: "POST")
         
         let body = [
@@ -215,7 +223,7 @@ class APIService: ObservableObject {
         
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         
-        let response = try await performRequest(request, responseType: AuthResponse.self)
+        let response = try await performRequest(request, responseType: AuthResponseV2.self)
         
         if response.success, let token = response.token {
             setAuthToken(token)

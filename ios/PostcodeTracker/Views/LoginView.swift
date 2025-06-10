@@ -109,7 +109,7 @@ struct LoginView: View {
         
         do {
             print("Attempting login for user: \(username)")
-            let response = try await apiService.login(username: username, password: password)
+            let response: AuthResponseV2 = try await apiService.login(username: username, password: password)
             
             print("Login response received:")
             print("- Success: \(response.success)")
@@ -144,7 +144,7 @@ struct LoginView: View {
         
         do {
             print("Attempting registration for user: \(username)")
-            let response = try await apiService.register(username: username, password: password)
+            let response: AuthResponseV2 = try await apiService.register(username: username, password: password)
             
             print("Registration response received:")
             print("- Success: \(response.success)")
