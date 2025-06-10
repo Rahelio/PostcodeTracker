@@ -329,6 +329,11 @@ def get_journeys():
         logger.error(f"Error getting journeys: {e}")
         return jsonify({'success': False, 'message': 'Failed to get journeys'}), 500
 
+@app.route('/api/postcodes', methods=['GET'])
+def get_postcodes():
+    """Legacy endpoint for postcodes - returns empty list since we removed postcode management."""
+    return jsonify([])
+
 @app.route('/api/postcode/from-coordinates', methods=['GET'])
 def get_postcode_from_coordinates():
     """Get UK postcode from coordinates."""

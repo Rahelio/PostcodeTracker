@@ -255,6 +255,13 @@ class APIService: ObservableObject {
         return try await performRequest(request, responseType: PostcodeResponse.self)
     }
     
+    // MARK: - Legacy Support (for compatibility)
+    func getPostcodes() async throws -> [String] {
+        // Return empty array since we removed postcode management
+        // This prevents 404 errors from old code
+        return []
+    }
+    
     // MARK: - Health Check
     func healthCheck() async throws -> APIResponse<String> {
         let request = try createRequest(for: "health", method: "GET")
