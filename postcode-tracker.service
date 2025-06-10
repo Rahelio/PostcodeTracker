@@ -1,0 +1,18 @@
+[Unit]
+Description=PostcodeTracker Flask App
+After=network.target
+
+[Service]
+Type=exec
+User=www-data
+Group=www-data
+WorkingDirectory=/path/to/your/PostcodeTracker
+Environment=FLASK_ENV=production
+Environment=PORT=8005
+ExecStart=/path/to/your/PostcodeTracker/venv/bin/gunicorn --config gunicorn.conf.py app:app
+ExecReload=/bin/kill -s HUP $MAINPID
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target 

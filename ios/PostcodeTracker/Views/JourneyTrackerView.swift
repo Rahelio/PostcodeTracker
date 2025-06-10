@@ -136,387 +136,236 @@ struct JourneyState: Codable {
 }
 
 struct JourneyTrackerView: View {
-    @State private var isRecording = false
-    @State private var startPostcode: Postcode?
-    @State private var endPostcode: Postcode?
-    @State private var distance: Double?
+    @StateObject private var journeyManager = JourneyManager.shared
+    @StateObject private var locationManager = LocationManager.shared
     @State private var showingAlert = false
     @State private var alertMessage = ""
-    @State private var isLoading = false
-    @StateObject private var locationManager = LocationManager()
-    @State private var isManualEntry = false
-    @State private var manualStartPostcode = ""
-    @State private var manualEndPostcode = ""
-    @State private var backgroundTask: UIBackgroundTaskIdentifier = .invalid
-    @State private var currentJourneyId: Int?
     
     var body: some View {
         NavigationView {
             ZStack {
-                Color(.systemBackground).ignoresSafeArea()
+                // Background
+                Color(.systemGroupedBackground)
+                    .ignoresSafeArea()
                 
                 ScrollView {
-                    VStack(spacing: 25) {
-                        // Spacer to push content down
-                        Spacer()
-                            .frame(height: isRecording ? UIScreen.main.bounds.height * 0.05 : UIScreen.main.bounds.height * 0.15)
-                        
-                        // Main Status and Controls
-                        VStack(spacing: 30) {
-                            // Status Header
-                            VStack(spacing: 12) {
-                                Image(systemName: isRecording ? "location.fill" : "location")
-                                    .font(.system(size: 60))
-                                    .foregroundColor(isRecording ? .red : .green)
-                                    .symbolEffect(.bounce, options: .repeating, value: isRecording)
+                    VStack(spacing: 24) {
+                        // Header Section
+                        VStack(spacing: 16) {
+                            // Status Icon
+                            ZStack {
+                                Circle()
+                                    .fill(journeyManager.hasActiveJourney ? Color.red.opacity(0.1) : Color.green.opacity(0.1))
+                                    .frame(width: 120, height: 120)
                                 
-                                Text(isRecording ? "Journey in Progress" : "Ready to Start")
-                                    .playfairDisplay(.title2)
-                                    .foregroundColor(.primary)
+                                Image(systemName: journeyManager.hasActiveJourney ? "location.fill" : "location")
+                                    .font(.system(size: 50, weight: .medium))
+                                    .foregroundColor(journeyManager.hasActiveJourney ? .red : .green)
+                                    .symbolEffect(.pulse, options: .repeating, value: journeyManager.hasActiveJourney)
                             }
-                            .frame(maxWidth: .infinity)
                             
-                            // Action Button
-                            if !isRecording {
-                                Button(action: startJourney) {
-                                    HStack {
-                                        Image(systemName: "play.fill")
-                                        Text("Start Journey")
-                                            .playfairDisplay(.headline)
-                                    }
-                                    .frame(maxWidth: .infinity)
-                                    .padding()
-                                    .background(Color.green)
-                                    .foregroundColor(.white)
-                                    .cornerRadius(16)
-                                    .shadow(color: Color.black.opacity(0.2), radius: 5, x: 0, y: 3)
+                            // Status Text
+                            VStack(spacing: 8) {
+                                Text(journeyManager.hasActiveJourney ? "Journey in Progress" : "Ready to Track")
+                                    .font(.title2)
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(.primary)
+                                
+                                if let journey = journeyManager.currentJourney {
+                                    Text("Started from \(journey.startPostcode)")
+                                        .font(.subheadline)
+                                        .foregroundColor(.secondary)
                                 }
-                                .padding(.horizontal, 40)
-                            } else {
-                                Button(action: endJourney) {
+                            }
+                        }
+                        .padding(.top, 32)
+                        
+                        // Journey Details Card
+                        if let journey = journeyManager.currentJourney {
+                            JourneyDetailsCard(journey: journey)
+                        }
+                        
+                        // Action Button
+                        VStack(spacing: 16) {
+                            if journeyManager.hasActiveJourney {
+                                Button(action: {
+                                    Task {
+                                        await journeyManager.endJourney()
+                                        if let error = journeyManager.errorMessage {
+                                            alertMessage = error
+                                            showingAlert = true
+                                        }
+                                    }
+                                }) {
                                     HStack {
                                         Image(systemName: "stop.fill")
                                         Text("End Journey")
-                                            .playfairDisplay(.headline)
+                                            .fontWeight(.semibold)
                                     }
                                     .frame(maxWidth: .infinity)
                                     .padding()
                                     .background(Color.red)
                                     .foregroundColor(.white)
-                                    .cornerRadius(16)
-                                    .shadow(color: Color.black.opacity(0.2), radius: 5, x: 0, y: 3)
+                                    .cornerRadius(12)
                                 }
-                                .padding(.horizontal, 40)
-                            }
-                        }
-                        .frame(maxWidth: .infinity)
-                        
-                        // Spacer to balance the layout
-                        Spacer()
-                            .frame(height: isRecording ? UIScreen.main.bounds.height * 0.05 : UIScreen.main.bounds.height * 0.15)
-                        
-                        if isLoading {
-                            ProgressView()
-                                .scaleEffect(1.5)
-                                .padding()
-                                .foregroundColor(.primary)
-                        }
-                        
-                        // Journey Details Section
-                        if startPostcode != nil || endPostcode != nil {
-                            VStack(spacing: 15) {
-                                // Start Location Card
-                                if let start = startPostcode {
-                                    LocationCard(
-                                        title: "Start Location",
-                                        name: start.name,
-                                        postcode: start.postcode,
-                                        latitude: start.latitude,
-                                        longitude: start.longitude
-                                    )
-                                }
-                                
-                                // End Location Card
-                                if let end = endPostcode {
-                                    LocationCard(
-                                        title: "End Location",
-                                        name: end.name,
-                                        postcode: end.postcode,
-                                        latitude: end.latitude,
-                                        longitude: end.longitude
-                                    )
-                                }
-                                
-                                // Distance Card
-                                if let distance = distance {
-                                    VStack(spacing: 8) {
-                                        Text("Distance")
-                                            .playfairDisplay(.headline)
-                                            .foregroundColor(.gray)
-                                        Text(String(format: "%.2f km", distance))
-                                            .playfairDisplay(.title2)
-                                            .foregroundColor(.white)
+                                .disabled(journeyManager.isLoading)
+                            } else {
+                                Button(action: {
+                                    Task {
+                                        await journeyManager.startJourney()
+                                        if let error = journeyManager.errorMessage {
+                                            alertMessage = error
+                                            showingAlert = true
+                                        }
+                                    }
+                                }) {
+                                    HStack {
+                                        if journeyManager.isLoading {
+                                            ProgressView()
+                                                .scaleEffect(0.8)
+                                                .tint(.white)
+                                        } else {
+                                            Image(systemName: "play.fill")
+                                        }
+                                        Text(journeyManager.isLoading ? "Starting..." : "Start Journey")
+                                            .fontWeight(.semibold)
                                     }
                                     .frame(maxWidth: .infinity)
                                     .padding()
-                                    .background(Color(.systemGray6))
-                                    .cornerRadius(16)
-                                    .shadow(color: Color.white.opacity(0.05), radius: 5, x: 0, y: 2)
+                                    .background(Color.green)
+                                    .foregroundColor(.white)
+                                    .cornerRadius(12)
                                 }
+                                .disabled(journeyManager.isLoading || locationManager.authorizationStatus == .denied)
                             }
-                            .padding(.horizontal)
                         }
+                        .padding(.horizontal, 32)
+                        
+                        // Location Permission Card
+                        if locationManager.authorizationStatus == .denied {
+                            LocationPermissionCard()
+                        }
+                        
+                        Spacer(minLength: 32)
                     }
-                    .padding(.vertical)
+                    .padding(.horizontal, 20)
                 }
             }
-            .navigationTitle("Track Journey")
+            .navigationTitle("Journey Tracker")
             .navigationBarTitleDisplayMode(.large)
-            .alert("Journey", isPresented: $showingAlert) {
-                Button("OK", role: .cancel) { }
+            .alert("Journey Update", isPresented: $showingAlert) {
+                Button("OK") {
+                    journeyManager.clearError()
+                }
             } message: {
                 Text(alertMessage)
-                    .playfairDisplay(.body)
-                    .foregroundColor(.white)
             }
             .onAppear {
-                locationManager.startUpdatingLocation()
-                // Restore journey state if it exists
-                if let state = JourneyState.load() {
-                    isRecording = state.isRecording
-                    startPostcode = state.startPostcode
-                    endPostcode = state.endPostcode
-                    distance = state.distance
-                    currentJourneyId = state.journeyId // Load journey ID
+                locationManager.requestLocationPermission()
+                Task {
+                    await journeyManager.checkActiveJourney()
                 }
             }
-            .onDisappear {
-                locationManager.stopUpdatingLocation()
-                // Save journey state
-                if isRecording {
-                    let state = JourneyState(
-                        isRecording: isRecording,
-                        startPostcode: startPostcode,
-                        endPostcode: endPostcode,
-                        distance: distance,
-                        startTime: Date(),
-                        journeyId: currentJourneyId
-                    )
-                    JourneyState.save(state)
-                } else {
-                    JourneyState.clear()
-                }
-            }
-        }
-        .navigationViewStyle(.stack)
-    }
-    
-    private func startJourney() {
-        isLoading = true
-        
-        // Begin background task
-        backgroundTask = UIApplication.shared.beginBackgroundTask { [self] in
-            endBackgroundTask()
-        }
-        
-        Task {
-            defer {
-                isLoading = false
-                endBackgroundTask()
-            }
-            
-            do {
-                // Get location
-                print("Attempting to get current location for start...")
-                let location = try await locationManager.requestLocation()
-                print("Location obtained for start: Latitude = \(location.coordinate.latitude), Longitude = \(location.coordinate.longitude)")
-                
-                // Call API to start the journey and get the ID
-                print("Calling API to start journey...")
-                
-                // Check if the API returned a journey ID
-                if let journeyId = try await APIService.shared.startTrackedJourney(
-                    latitude: location.coordinate.latitude,
-                    longitude: location.coordinate.longitude
-                ) {
-                    currentJourneyId = journeyId // Store the journey ID
-                    isRecording = true
-                    
-                    // Optionally fetch start postcode after starting journey if needed for display
-                    // or rely on the server response for initial details
-                    if let postcode = try await APIService.shared.getPostcodeFromCoordinates(
-                        latitude: location.coordinate.latitude,
-                        longitude: location.coordinate.longitude
-                    ) {
-                         startPostcode = postcode
-                         alertMessage = "Journey started! Start postcode: \(postcode.postcode)"
-                    } else {
-                         startPostcode = nil
-                         alertMessage = "Journey started! Could not determine start postcode."
-                    }
-                    showingAlert = true
-
-                    // Save state
-                    let state = JourneyState(
-                        isRecording: true,
-                        startPostcode: startPostcode,
-                        endPostcode: nil,
-                        distance: nil,
-                        startTime: Date(),
-                        journeyId: currentJourneyId
-                    )
-                    JourneyState.save(state)
-                } else {
-                    // Server returned nil, meaning postcode was not found for start location
-                    print("API returned nil for start tracked journey. Postcode not found.")
-                    alertMessage = "Could not determine your starting postcode. Please try again in a different location."
-                    showingAlert = true
-                    // Do not start recording or save state if journey couldn't be started on server
-                }
-                
-            } catch { // This catch block would also show an alert, but likely a different message
-                print("Error in startJourney task: \(error.localizedDescription)")
-                alertMessage = "Error starting journey: \(error.localizedDescription)"
-                showingAlert = true
-            }
-        }
-    }
-    
-    private func endJourney() {
-        guard isRecording, let journeyId = currentJourneyId else {
-            alertMessage = "No active journey to end."
-            showingAlert = true
-            return
-        }
-        
-        isLoading = true
-        
-        // Begin background task
-        backgroundTask = UIApplication.shared.beginBackgroundTask { [self] in
-            endBackgroundTask()
-        }
-        
-        Task {
-            defer {
-                isLoading = false
-                endBackgroundTask()
-            }
-            
-            do {
-                // Get end location
-                print("Attempting to get current location for end...")
-                let location = try await locationManager.requestLocation()
-                print("Location obtained for end: Latitude = \(location.coordinate.latitude), Longitude = \(location.coordinate.longitude)")
-                
-                // Call API to end the journey
-                print("Calling API to end journey with ID: \(journeyId)...")
-                let completedJourney = try await APIService.shared.endTrackedJourney(
-                    journeyId: journeyId,
-                    latitude: location.coordinate.latitude,
-                    longitude: location.coordinate.longitude
-                )
-                
-                // Update UI with completed journey details
-                startPostcode = completedJourney.start_location
-                endPostcode = completedJourney.end_location
-                distance = completedJourney.distance_miles
-                
-                // Reset for next journey
-                isRecording = false
-                currentJourneyId = nil // Clear journey ID
-                
-                // Clear saved state
-                JourneyState.clear()
-                
-                alertMessage = "Journey completed! Distance: \(String(format: "%.1f", completedJourney.distance_miles)) miles"
-                showingAlert = true
-                
-            } catch {
-                print("Error in endJourney task: \(error.localizedDescription)")
-                alertMessage = "Error ending journey: \(error.localizedDescription)"
-                showingAlert = true
-            }
-        }
-    }
-    
-    private func createManualJourney() {
-        isLoading = true
-        
-        Task {
-            do {
-                let journey = try await APIService.shared.createManualJourney(
-                    startPostcode: manualStartPostcode,
-                    endPostcode: manualEndPostcode
-                )
-                
-                // Update UI with journey details
-                startPostcode = journey.start_location
-                endPostcode = journey.end_location
-                distance = journey.distance_miles
-                
-                // Clear manual entry fields
-                manualStartPostcode = ""
-                manualEndPostcode = ""
-                isManualEntry = false
-                
-                alertMessage = "Manual journey created! Distance: \(String(format: "%.1f", journey.distance_miles)) miles"
-                showingAlert = true
-            } catch {
-                alertMessage = "Error: \(error.localizedDescription)"
-                showingAlert = true
-            }
-            isLoading = false
-        }
-    }
-    
-    private func endBackgroundTask() {
-        if backgroundTask != .invalid {
-            UIApplication.shared.endBackgroundTask(backgroundTask)
-            backgroundTask = .invalid
         }
     }
 }
 
-// Location Card View
-struct LocationCard: View {
-    let title: String
-    let name: String
-    let postcode: String
-    let latitude: Double?
-    let longitude: Double?
+struct JourneyDetailsCard: View {
+    let journey: Journey
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(title)
-                .playfairDisplay(.headline)
-                .foregroundColor(.gray)
+            HStack {
+                Image(systemName: "map")
+                    .foregroundColor(.blue)
+                Text("Journey Details")
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                Spacer()
+            }
+            
+            Divider()
             
             VStack(alignment: .leading, spacing: 8) {
-                Text(name)
-                    .playfairDisplay(.title3)
-                    .foregroundColor(.white)
+                DetailRow(title: "Start Location", value: journey.startPostcode)
                 
-                Text(postcode)
-                    .playfairDisplay(.subheadline)
-                    .foregroundColor(.gray)
+                if let endPostcode = journey.endPostcode {
+                    DetailRow(title: "End Location", value: endPostcode)
+                }
                 
-                if let lat = latitude, let lon = longitude {
-                    HStack {
-                        Image(systemName: "location.fill")
-                            .font(.caption)
-                            .foregroundColor(.gray)
-                        Text("\(String(format: "%.4f, %.4f", lat, lon))")
-                            .playfairDisplay(.caption)
-                            .foregroundColor(.gray)
-                    }
+                if let startTime = journey.formattedStartTime {
+                    DetailRow(title: "Started", value: formatTime(startTime))
+                }
+                
+                if let distance = journey.distanceMiles {
+                    DetailRow(title: "Distance", value: String(format: "%.2f miles", distance))
+                }
+                
+                if !journey.isActive, let duration = journey.formattedEndTime {
+                    DetailRow(title: "Duration", value: journey.duration)
                 }
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
         .padding()
-        .background(Color(.systemGray6))
-        .cornerRadius(16)
-        .shadow(color: Color.white.opacity(0.05), radius: 5, x: 0, y: 2)
+        .background(Color(.systemBackground))
+        .cornerRadius(12)
+        .shadow(color: Color.black.opacity(0.1), radius: 2, x: 0, y: 1)
+    }
+    
+    private func formatTime(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        formatter.dateStyle = .none
+        return formatter.string(from: date)
+    }
+}
+
+struct DetailRow: View {
+    let title: String
+    let value: String
+    
+    var body: some View {
+        HStack {
+            Text(title)
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+            Spacer()
+            Text(value)
+                .font(.subheadline)
+                .fontWeight(.medium)
+                .foregroundColor(.primary)
+        }
+    }
+}
+
+struct LocationPermissionCard: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: "location.slash")
+                    .foregroundColor(.orange)
+                Text("Location Access Required")
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                Spacer()
+            }
+            
+            Text("To track your journeys, please enable location access in Settings.")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+            
+            Button("Open Settings") {
+                if let settingsUrl = URL(string: UIApplication.openSettingsURLString) {
+                    UIApplication.shared.open(settingsUrl)
+                }
+            }
+            .font(.subheadline)
+            .fontWeight(.medium)
+            .foregroundColor(.blue)
+        }
+        .padding()
+        .background(Color.orange.opacity(0.1))
+        .cornerRadius(12)
     }
 }
 

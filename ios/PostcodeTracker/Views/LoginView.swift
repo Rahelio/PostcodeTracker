@@ -1,11 +1,9 @@
 import SwiftUI
-import Foundation
-
-@_exported import struct Foundation.URL
-@_exported import class Foundation.URLSession
 
 struct LoginView: View {
     @StateObject private var authManager = AuthManager.shared
+    @StateObject private var apiService = APIService.shared
+    
     @State private var username = ""
     @State private var password = ""
     @State private var isLoading = false
@@ -16,147 +14,138 @@ struct LoginView: View {
     var body: some View {
         NavigationView {
             ZStack {
-                Color(.systemBackground).ignoresSafeArea()
+                // Background
+                LinearGradient(
+                    gradient: Gradient(colors: [Color.blue.opacity(0.6), Color.purple.opacity(0.6)]),
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .ignoresSafeArea()
                 
-                VStack(spacing: 30) {
-                    // Logo or App Name
-                    VStack(spacing: 15) {
-                        Image(systemName: "map.fill")
-                            .font(.system(size: 70))
-                            .foregroundColor(.primary)
-                        Text("Postcode Tracker")
-                            .playfairDisplay(.largeTitle)
-                            .foregroundColor(.primary)
-                    }
-                    .padding(.top, 60)
-                    .padding(.bottom, 40)
-                    
-                    // Login Form
-                    VStack(spacing: 20) {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Username")
-                                .playfairDisplay(.subheadline)
-                                .foregroundColor(.secondary)
-                            TextField("", text: $username)
-                                .textFieldStyle(CustomTextFieldStyle())
-                                .autocapitalization(.none)
-                                .disableAutocorrection(true)
-                                .playfairDisplay(.body)
-                                .foregroundColor(.primary)
+                ScrollView {
+                    VStack(spacing: 32) {
+                        Spacer()
+                            .frame(height: 60)
+                        
+                        // App Logo/Title
+                        VStack(spacing: 16) {
+                            Image(systemName: "location.circle.fill")
+                                .font(.system(size: 80))
+                                .foregroundColor(.white)
+                            
+                            Text("Postcode Tracker")
+                                .font(.largeTitle)
+                                .fontWeight(.bold)
+                                .foregroundColor(.white)
+                            
+                            Text("Track your journeys across the UK")
+                                .font(.subheadline)
+                                .foregroundColor(.white.opacity(0.8))
                         }
                         
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Password")
-                                .playfairDisplay(.subheadline)
-                                .foregroundColor(.secondary)
-                            SecureField("", text: $password)
-                                .textFieldStyle(CustomTextFieldStyle())
-                                .playfairDisplay(.body)
-                                .foregroundColor(.primary)
-                        }
-                        
-                        Button(action: {
-                            if isRegistering {
-                                register()
-                            } else {
-                                login()
+                        // Login Form
+                        VStack(spacing: 20) {
+                            VStack(spacing: 16) {
+                                TextField("Username", text: $username)
+                                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                                    .autocapitalization(.none)
+                                    .disableAutocorrection(true)
+                                
+                                SecureField("Password", text: $password)
+                                    .textFieldStyle(RoundedBorderTextFieldStyle())
                             }
-                        }) {
-                            if isLoading {
-                                ProgressView()
-                                    .progressViewStyle(CircularProgressViewStyle(tint: .primary))
-                            } else {
-                                Text(isRegistering ? "Register" : "Login")
-                                    .playfairDisplay(.headline)
-                                    .frame(maxWidth: .infinity)
+                            
+                            Button(action: {
+                                Task {
+                                    if isRegistering {
+                                        await register()
+                                    } else {
+                                        await login()
+                                    }
+                                }
+                            }) {
+                                HStack {
+                                    if isLoading {
+                                        ProgressView()
+                                            .scaleEffect(0.8)
+                                            .tint(.white)
+                                    }
+                                    Text(isRegistering ? "Create Account" : "Sign In")
+                                        .fontWeight(.semibold)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .background(Color.white)
+                                .foregroundColor(.blue)
+                                .cornerRadius(12)
                             }
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color.accentColor)
-                        .foregroundColor(.white)
-                        .cornerRadius(16)
-                        .shadow(color: Color.black.opacity(0.2), radius: 5, x: 0, y: 3)
-                        .disabled(username.isEmpty || password.isEmpty || isLoading)
-                        
-                        Button(action: {
-                            withAnimation {
+                            .disabled(isLoading || username.isEmpty || password.isEmpty)
+                            
+                            Button(action: {
                                 isRegistering.toggle()
+                            }) {
+                                Text(isRegistering ? "Already have an account? Sign In" : "Don't have an account? Sign Up")
+                                    .font(.subheadline)
+                                    .foregroundColor(.white)
                             }
-                        }) {
-                            Text(isRegistering ? "Already have an account? Login" : "Don't have an account? Register")
-                                .playfairDisplay(.subheadline)
-                                .foregroundColor(.secondary)
                         }
+                        .padding(.horizontal, 32)
+                        
+                        Spacer()
                     }
-                    .padding(.horizontal, 30)
-                }
-                .padding()
-                .alert("Authentication", isPresented: $showingAlert) {
-                    Button("OK", role: .cancel) { }
-                } message: {
-                    Text(alertMessage)
-                        .playfairDisplay(.body)
-                        .foregroundColor(.primary)
                 }
             }
             .navigationBarHidden(true)
-        }
-    }
-    
-    private func login() {
-        isLoading = true
-        
-        Task {
-            do {
-                let token = try await APIService.shared.login(username: username, password: password)
-                await MainActor.run {
-                    authManager.login(token: token)
-                }
-            } catch {
-                await MainActor.run {
-                    alertMessage = "Login failed: \(error.localizedDescription)"
-                    showingAlert = true
-                }
-            }
-            await MainActor.run {
-                isLoading = false
+            .alert(isRegistering ? "Registration" : "Login", isPresented: $showingAlert) {
+                Button("OK") { }
+            } message: {
+                Text(alertMessage)
             }
         }
     }
     
-    private func register() {
+    private func login() async {
         isLoading = true
         
-        Task {
-            do {
-                _ = try await APIService.shared.register(username: username, password: password)
+        do {
+            let response = try await apiService.login(username: username, password: password)
+            
+            if response.success, let user = response.user {
                 await MainActor.run {
-                    alertMessage = "Registration successful! Please login."
-                    showingAlert = true
-                    isRegistering = false
-                    password = ""
+                    authManager.login(user: user)
                 }
-            } catch {
-                await MainActor.run {
-                    alertMessage = "Registration failed: \(error.localizedDescription)"
-                    showingAlert = true
-                }
+            } else {
+                alertMessage = response.message
+                showingAlert = true
             }
-            await MainActor.run {
-                isLoading = false
-            }
+        } catch {
+            alertMessage = error.localizedDescription
+            showingAlert = true
         }
+        
+        isLoading = false
     }
-}
-
-struct CustomTextFieldStyle: TextFieldStyle {
-    func _body(configuration: TextField<Self._Label>) -> some View {
-        configuration
-            .padding()
-            .background(Color(.secondarySystemBackground))
-            .cornerRadius(12)
-            .shadow(color: Color.black.opacity(0.1), radius: 2, x: 0, y: 1)
+    
+    private func register() async {
+        isLoading = true
+        
+        do {
+            let response = try await apiService.register(username: username, password: password)
+            
+            if response.success, let user = response.user {
+                await MainActor.run {
+                    authManager.login(user: user)
+                }
+            } else {
+                alertMessage = response.message
+                showingAlert = true
+            }
+        } catch {
+            alertMessage = error.localizedDescription
+            showingAlert = true
+        }
+        
+        isLoading = false
     }
 }
 

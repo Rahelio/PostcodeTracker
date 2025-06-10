@@ -1,106 +1,41 @@
 import os
 import logging
-import sys
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy.orm import DeclarativeBase
 from flask_cors import CORS
-from werkzeug.serving import WSGIRequestHandler
+from datetime import timedelta
 
 # Configure logging
 logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    stream=sys.stdout
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
 
-# Configure Werkzeug to use HTTP/1.1
-WSGIRequestHandler.protocol_version = "HTTP/1.1"
-
-# Set up SQLAlchemy base class
-class Base(DeclarativeBase):
-    pass
-
-# Initialize SQLAlchemy
-db = SQLAlchemy(model_class=Base)
-
-# Create Flask app
+# Initialize Flask app
 app = Flask(__name__)
 
-# Configure CORS with specific settings
-CORS(app, resources={
-    r"/api/*": {
-        "origins": ["*"],
-        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        "allow_headers": ["Content-Type", "Authorization"],
-        "supports_credentials": True,
-        "max_age": 3600
-    }
-})
+# Configuration
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', os.urandom(24))
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///postcode_tracker.db')
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', os.urandom(24))
+app.config['JWT_EXPIRATION_DELTA'] = timedelta(days=30)
 
-# Use environment variable for secret key with a fallback
-app.secret_key = os.environ.get("SECRET_KEY", os.urandom(24))
+# Initialize extensions
+db = SQLAlchemy(app)
+CORS(app, origins=["*"])  # Allow all origins for development
 
-# Configure server settings
-app.config['SERVER_NAME'] = None  # Allow any hostname
-app.config['PREFERRED_URL_SCHEME'] = 'http'  # Use HTTP by default
-app.config['JSON_SORT_KEYS'] = False
-app.config['JSONIFY_PRETTYPRINT_REGULAR'] = False
-app.config['JSONIFY_MIMETYPE'] = 'application/json'
+# Import models and routes after app initialization
+from models import Journey, User
+from routes import *
 
-# Configure database - handle both PostgreSQL and SQLite for local development
-database_url = os.environ.get("DATABASE_URL")
-logger.debug(f"Initial DATABASE_URL from environment: {database_url}")
-
-# If DATABASE_URL is not provided, use SQLite as a fallback for local development
-if not database_url:
-    # Use SQLite file in the current directory
-    database_path = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'postcode_distances.db')
-    database_url = f"sqlite:///{database_path}"
-    logger.warning(f"Database URL not found. Using SQLite: {database_url}")
-    logger.warning("To use PostgreSQL, set the DATABASE_URL environment variable")
-    logger.warning("Example: DATABASE_URL=postgresql://username:password@localhost:5432/dbname")
-elif database_url.startswith("postgres://"):
-    # Heroku-style URL - replace for SQLAlchemy 1.4+ compatibility
-    database_url = database_url.replace("postgres://", "postgresql://", 1)
-    logger.debug(f"Converted postgres:// to postgresql:// URL: {database_url}")
-
-logger.debug(f"Final database URL being used: {database_url}")
-
-app.config["SQLALCHEMY_DATABASE_URI"] = database_url
-app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-
-# Set engine options based on database type
-if database_url.startswith("postgresql"):
-    app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
-        "pool_recycle": 300,
-        "pool_pre_ping": True,
-        "pool_size": 10,
-        "max_overflow": 20,
-    }
-    logger.debug("Using PostgreSQL configuration")
-else:
-    # Simpler config for SQLite
-    app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
-        "pool_pre_ping": True,
-    }
-    logger.debug("Using SQLite configuration")
-
-# Initialize the app with the extension
-db.init_app(app)
-
+# Create tables
 with app.app_context():
-    try:
-        # Import models here to avoid circular imports
-        import models
-        # Create all database tables if they don't exist
-        db.create_all()
-        logger.debug("Database tables checked/created successfully")
-    except Exception as e:
-        logger.error(f"Error initializing database: {str(e)}")
-        if "already exists" in str(e):
-            logger.warning("Tables already exist, continuing...")
-        else:
-            logger.error("Please check your database configuration and ensure PostgreSQL is running")
-            raise
+    db.create_all()
+    logger.info("Database tables created successfully")
+
+if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 8005))
+    debug = os.environ.get('FLASK_ENV') == 'development'
+    app.run(host='0.0.0.0', port=port, debug=debug)

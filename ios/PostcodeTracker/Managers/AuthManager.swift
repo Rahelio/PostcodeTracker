@@ -2,41 +2,47 @@ import Foundation
 import SwiftUI
 
 @MainActor
-final class AuthManager: ObservableObject {
+class AuthManager: ObservableObject {
     static let shared = AuthManager()
     
     @Published var isAuthenticated = false
-    @Published var token: String?
+    @Published var currentUser: User?
     
     private init() {
-        print("AuthManager: Initializing...")
-        // Check for existing token on init
-        if let savedToken = UserDefaults.standard.string(forKey: "authToken") {
-            print("AuthManager: Found saved token in UserDefaults")
-            self.token = savedToken
-            self.isAuthenticated = true
-            APIService.shared.setAuthToken(savedToken)
-            print("AuthManager: Restored authentication state, isAuthenticated: \(isAuthenticated)")
-        } else {
-            print("AuthManager: No saved token found in UserDefaults")
-        }
+        checkAuthenticationStatus()
     }
     
-    func login(token: String) {
-        print("AuthManager: Setting token and updating authentication state")
-        self.token = token
+    func login(user: User) {
+        self.currentUser = user
         self.isAuthenticated = true
-        APIService.shared.setAuthToken(token)
-        UserDefaults.standard.set(token, forKey: "authToken")
-        print("AuthManager: isAuthenticated is now \(isAuthenticated)")
+        
+        // Save user data
+        if let userData = try? JSONEncoder().encode(user) {
+            UserDefaults.standard.set(userData, forKey: "current_user")
+        }
+        UserDefaults.standard.set(true, forKey: "is_authenticated")
     }
     
     func logout() {
-        print("AuthManager: Logging out")
-        self.token = nil
+        self.currentUser = nil
         self.isAuthenticated = false
-        APIService.shared.setAuthToken(nil)
-        UserDefaults.standard.removeObject(forKey: "authToken")
-        print("AuthManager: isAuthenticated is now \(isAuthenticated)")
+        
+        // Clear saved data
+        UserDefaults.standard.removeObject(forKey: "current_user")
+        UserDefaults.standard.removeObject(forKey: "is_authenticated")
+        UserDefaults.standard.removeObject(forKey: "auth_token")
+    }
+    
+    private func checkAuthenticationStatus() {
+        let isAuth = UserDefaults.standard.bool(forKey: "is_authenticated")
+        
+        if isAuth, let userData = UserDefaults.standard.data(forKey: "current_user"),
+           let user = try? JSONDecoder().decode(User.self, from: userData) {
+            self.currentUser = user
+            self.isAuthenticated = true
+        } else {
+            self.isAuthenticated = false
+            self.currentUser = nil
+        }
     }
 } 
