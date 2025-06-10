@@ -108,17 +108,30 @@ struct LoginView: View {
         isLoading = true
         
         do {
+            print("Attempting login for user: \(username)")
             let response = try await apiService.login(username: username, password: password)
             
+            print("Login response received:")
+            print("- Success: \(response.success)")
+            print("- Message: \(response.message)")
+            print("- Token: \(response.token != nil ? "Present" : "Missing")")
+            print("- User: \(response.user != nil ? "Present" : "Missing")")
+            
             if response.success, let user = response.user {
+                print("Login successful, updating auth manager with user: \(user)")
                 await MainActor.run {
                     authManager.login(user: user)
                 }
             } else {
+                print("Login failed: \(response.message)")
                 alertMessage = response.message
                 showingAlert = true
             }
         } catch {
+            print("Login error caught: \(error)")
+            if let apiError = error as? APIError {
+                print("API Error details: \(apiError.errorDescription ?? "Unknown")")
+            }
             alertMessage = error.localizedDescription
             showingAlert = true
         }
@@ -130,17 +143,30 @@ struct LoginView: View {
         isLoading = true
         
         do {
+            print("Attempting registration for user: \(username)")
             let response = try await apiService.register(username: username, password: password)
             
+            print("Registration response received:")
+            print("- Success: \(response.success)")
+            print("- Message: \(response.message)")
+            print("- Token: \(response.token != nil ? "Present" : "Missing")")
+            print("- User: \(response.user != nil ? "Present" : "Missing")")
+            
             if response.success, let user = response.user {
+                print("Registration successful, updating auth manager with user: \(user)")
                 await MainActor.run {
                     authManager.login(user: user)
                 }
             } else {
+                print("Registration failed: \(response.message)")
                 alertMessage = response.message
                 showingAlert = true
             }
         } catch {
+            print("Registration error caught: \(error)")
+            if let apiError = error as? APIError {
+                print("API Error details: \(apiError.errorDescription ?? "Unknown")")
+            }
             alertMessage = error.localizedDescription
             showingAlert = true
         }

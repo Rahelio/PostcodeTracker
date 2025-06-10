@@ -155,14 +155,17 @@ def login():
         # Create token
         token = create_token(user.id)
         
-        logger.info(f"User {username} logged in successfully")
-        
-        return jsonify({
+        response_data = {
             'success': True,
             'message': 'Login successful',
             'token': token,
             'user': user.to_dict()
-        })
+        }
+        
+        logger.info(f"User {username} logged in successfully")
+        logger.info(f"Login response: {response_data}")
+        
+        return jsonify(response_data)
         
     except Exception as e:
         logger.error(f"Login error: {e}")
