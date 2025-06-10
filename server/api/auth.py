@@ -42,7 +42,16 @@ def login():
         return jsonify({'error': 'Invalid credentials'}), 401
     
     access_token = create_access_token(identity=user.id)
-    return jsonify({'access_token': access_token}), 200
+    return jsonify({
+        'success': True,
+        'message': 'Login successful',
+        'token': access_token,
+        'user': {
+            'id': user.id,
+            'username': user.username,
+            'created_at': user.created_at.isoformat() if hasattr(user, 'created_at') else None
+        }
+    }), 200
 
 @auth_bp.route('/me', methods=['GET'])
 @jwt_required()

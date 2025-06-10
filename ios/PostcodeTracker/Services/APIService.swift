@@ -8,11 +8,20 @@ struct APIResponse<T: Codable>: Codable {
     let data: T?
 }
 
+// MARK: - Response Models
+// Updated to match server API v2.0 - using "token" field
 struct AuthResponse: Codable {
     let success: Bool
     let message: String
     let token: String?
     let user: User?
+    
+    enum CodingKeys: String, CodingKey {
+        case success
+        case message
+        case token
+        case user
+    }
 }
 
 struct JourneyResponse: Codable {
@@ -76,13 +85,15 @@ enum APIError: Error, LocalizedError {
 class APIService: ObservableObject {
     static let shared = APIService()
     
-    private let baseURL = "http://rickys.ddns.net:8005/api"
+    private let baseURL = "https://rickys.ddns.net/LocationApp/api"
     private let session = URLSession.shared
     private var authToken: String?
     
     private init() {
         // Load saved auth token
         self.authToken = UserDefaults.standard.string(forKey: "auth_token")
+        print("APIService initialized with baseURL: \(baseURL)")
+        print("Loaded auth token: \(authToken != nil ? "Present" : "None")")
     }
     
     // MARK: - Auth Token Management
@@ -102,9 +113,15 @@ class APIService: ObservableObject {
     
     // MARK: - HTTP Methods
     private func createRequest(for endpoint: String, method: String = "GET") throws -> URLRequest {
-        guard let url = URL(string: "\(baseURL)/\(endpoint)") else {
+        let fullURL = "\(baseURL)/\(endpoint)"
+        print("Attempting to create URL from string: \(fullURL)")
+        
+        guard let url = URL(string: fullURL) else {
+            print("Failed to create URL from: \(fullURL)")
             throw APIError.invalidURL
         }
+        
+        print("Successfully created URL: \(url.absoluteString)")
         
         var request = URLRequest(url: url)
         request.httpMethod = method
@@ -114,6 +131,8 @@ class APIService: ObservableObject {
         if let token = authToken {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
+        
+        print("Created request with URL: \(request.url?.absoluteString ?? "nil")")
         
         return request
     }
