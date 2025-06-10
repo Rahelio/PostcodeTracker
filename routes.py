@@ -46,6 +46,19 @@ def get_current_user():
     
     return None
 
+def require_auth(f):
+    """Decorator to require authentication for endpoints."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        current_user = get_current_user()
+        if not current_user:
+            return jsonify({
+                'success': False, 
+                'message': 'Authentication required. Please log in.'
+            }), 401
+        return f(current_user, *args, **kwargs)
+    return decorated_function
+
 # API Routes
 @app.route('/api/health', methods=['GET'])
 def health_check():
@@ -139,13 +152,47 @@ def login():
         logger.error(f"Login error: {e}")
         return jsonify({'success': False, 'message': 'Login failed'}), 500
 
-@app.route('/api/journey/start', methods=['POST'])
-def start_journey():
-    """Start a new journey using GPS coordinates."""
+@app.route('/api/auth/profile', methods=['GET'])
+@require_auth
+def get_profile(current_user):
+    """Get user profile information."""
     try:
-        # Get current user (optional for now)
-        current_user = get_current_user()
+        # Get user's journey statistics
+        total_journeys = Journey.query.filter_by(user_id=current_user.id).count()
+        completed_journeys = Journey.query.filter_by(user_id=current_user.id).filter(Journey.end_time.isnot(None)).count()
+        total_distance = db.session.query(db.func.sum(Journey.distance_miles)).filter_by(user_id=current_user.id).scalar() or 0
         
+        profile_data = current_user.to_dict()
+        profile_data.update({
+            'total_journeys': total_journeys,
+            'completed_journeys': completed_journeys,
+            'total_distance_miles': round(total_distance, 2)
+        })
+        
+        return jsonify({
+            'success': True,
+            'profile': profile_data
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting profile for user {current_user.username}: {e}")
+        return jsonify({'success': False, 'message': 'Failed to get profile'}), 500
+
+@app.route('/api/auth/logout', methods=['POST'])
+@require_auth
+def logout(current_user):
+    """Logout user (client should delete token)."""
+    logger.info(f"User {current_user.username} logged out")
+    return jsonify({
+        'success': True,
+        'message': 'Logged out successfully'
+    })
+
+@app.route('/api/journey/start', methods=['POST'])
+@require_auth
+def start_journey(current_user):
+    """Start a new journey using GPS coordinates. Requires authentication."""
+    try:
         data = request.get_json()
         if not data:
             return jsonify({'success': False, 'message': 'No data provided'}), 400
@@ -165,12 +212,8 @@ def start_journey():
         except (ValueError, TypeError):
             return jsonify({'success': False, 'message': 'Invalid coordinates'}), 400
         
-        # Check for active journey
-        if current_user:
-            active_journey = Journey.query.filter_by(user_id=current_user.id, end_time=None).first()
-        else:
-            active_journey = Journey.query.filter_by(user_id=None, end_time=None).first()
-        
+        # Check for active journey for this user
+        active_journey = Journey.query.filter_by(user_id=current_user.id, end_time=None).first()
         if active_journey:
             return jsonify({
                 'success': False,
@@ -185,17 +228,17 @@ def start_journey():
                 'message': 'Could not determine UK postcode for your location'
             }), 400
         
-        # Create new journey
+        # Create new journey for this user
         journey = Journey(
             start_postcode=start_postcode,
             start_latitude=lat,
             start_longitude=lon,
-            user_id=current_user.id if current_user else None
+            user_id=current_user.id
         )
         db.session.add(journey)
         db.session.commit()
         
-        logger.info(f"Journey {journey.id} started with postcode {start_postcode}")
+        logger.info(f"User {current_user.username} started journey {journey.id} with postcode {start_postcode}")
         
         return jsonify({
             'success': True,
@@ -209,12 +252,10 @@ def start_journey():
         return jsonify({'success': False, 'message': 'Failed to start journey'}), 500
 
 @app.route('/api/journey/end', methods=['POST'])
-def end_journey():
-    """End the active journey."""
+@require_auth
+def end_journey(current_user):
+    """End the active journey. Requires authentication."""
     try:
-        # Get current user (optional for now)
-        current_user = get_current_user()
-        
         data = request.get_json()
         if not data:
             return jsonify({'success': False, 'message': 'No data provided'}), 400
@@ -234,12 +275,8 @@ def end_journey():
         except (ValueError, TypeError):
             return jsonify({'success': False, 'message': 'Invalid coordinates'}), 400
         
-        # Find active journey
-        if current_user:
-            journey = Journey.query.filter_by(user_id=current_user.id, end_time=None).first()
-        else:
-            journey = Journey.query.filter_by(user_id=None, end_time=None).first()
-        
+        # Find active journey for this user
+        journey = Journey.query.filter_by(user_id=current_user.id, end_time=None).first()
         if not journey:
             return jsonify({'success': False, 'message': 'No active journey found'}), 404
         
@@ -280,16 +317,11 @@ def end_journey():
         return jsonify({'success': False, 'message': 'Failed to end journey'}), 500
 
 @app.route('/api/journey/active', methods=['GET'])
-def get_active_journey():
-    """Get the current active journey."""
+@require_auth
+def get_active_journey(current_user):
+    """Get the current active journey for the authenticated user."""
     try:
-        # Get current user (optional for now)
-        current_user = get_current_user()
-        
-        if current_user:
-            journey = Journey.query.filter_by(user_id=current_user.id, end_time=None).first()
-        else:
-            journey = Journey.query.filter_by(user_id=None, end_time=None).first()
+        journey = Journey.query.filter_by(user_id=current_user.id, end_time=None).first()
         
         if journey:
             return jsonify({
@@ -305,20 +337,17 @@ def get_active_journey():
             })
             
     except Exception as e:
-        logger.error(f"Error getting active journey: {e}")
+        logger.error(f"Error getting active journey for user {current_user.username}: {e}")
         return jsonify({'success': False, 'message': 'Failed to get active journey'}), 500
 
 @app.route('/api/journeys', methods=['GET'])
-def get_journeys():
-    """Get all journeys for the current user."""
+@require_auth
+def get_journeys(current_user):
+    """Get all journeys for the authenticated user."""
     try:
-        # Get current user (optional for now)
-        current_user = get_current_user()
+        journeys = Journey.query.filter_by(user_id=current_user.id).order_by(Journey.start_time.desc()).all()
         
-        if current_user:
-            journeys = Journey.query.filter_by(user_id=current_user.id).order_by(Journey.start_time.desc()).all()
-        else:
-            journeys = Journey.query.filter_by(user_id=None).order_by(Journey.start_time.desc()).all()
+        logger.info(f"Retrieved {len(journeys)} journeys for user {current_user.username}")
         
         return jsonify({
             'success': True,
@@ -326,7 +355,7 @@ def get_journeys():
         })
         
     except Exception as e:
-        logger.error(f"Error getting journeys: {e}")
+        logger.error(f"Error getting journeys for user {current_user.username}: {e}")
         return jsonify({'success': False, 'message': 'Failed to get journeys'}), 500
 
 @app.route('/api/postcodes', methods=['GET'])

@@ -199,8 +199,31 @@ class APIService: ObservableObject {
         return response
     }
     
-    func logout() {
+    func logout() async throws {
+        // Call server logout endpoint
+        if isAuthenticated {
+            do {
+                let request = try createRequest(for: "auth/logout", method: "POST")
+                let _: APIResponse<String> = try await performRequest(request, responseType: APIResponse<String>.self)
+            } catch {
+                // Log error but continue with local logout
+                print("Server logout failed: \(error)")
+            }
+        }
+        
+        // Clear local token
         clearAuthToken()
+    }
+    
+    func getProfile() async throws -> User {
+        let request = try createRequest(for: "auth/profile", method: "GET")
+        let response = try await performRequest(request, responseType: APIResponse<User>.self)
+        
+        if response.success, let user = response.data {
+            return user
+        } else {
+            throw APIError.serverError(response.message ?? "Failed to get profile")
+        }
     }
     
     // MARK: - Journey Management
