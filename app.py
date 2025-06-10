@@ -1,7 +1,6 @@
 import os
 import logging
 from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from datetime import timedelta
 
@@ -23,7 +22,8 @@ app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', os.urandom(24))
 app.config['JWT_EXPIRATION_DELTA'] = timedelta(days=30)
 
 # Initialize extensions
-db = SQLAlchemy(app)
+from database import db
+db.init_app(app)
 CORS(app, origins=["*"])  # Allow all origins for development
 
 # Import models and routes after app initialization

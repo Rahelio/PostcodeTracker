@@ -1,5 +1,5 @@
 from datetime import datetime
-from app import db
+from database import db
 from typing import Dict, Any
 
 class Journey(db.Model):

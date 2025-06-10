@@ -4,7 +4,8 @@ from functools import wraps
 from flask import request, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 import jwt
-from app import app, db
+from app import app
+from database import db
 from models import Journey, User
 from postcode_service import PostcodeService
 
