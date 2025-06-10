@@ -11,6 +11,20 @@ struct ProfileView: View {
     var body: some View {
         NavigationView {
             List {
+                // Loading indicator
+                if isLoading && userProfile == nil {
+                    Section {
+                        HStack {
+                            ProgressView()
+                                .scaleEffect(0.8)
+                            Text("Loading profile...")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        }
+                        .padding(.vertical, 8)
+                    }
+                }
+                
                 // User Info Section
                 Section {
                     HStack {
@@ -93,16 +107,12 @@ struct ProfileView: View {
                 }
                 
                 // Actions Section
-                Section {
+                Section("Account") {
                     Button(action: {
                         showingLogoutAlert = true
                     }) {
-                        HStack {
-                            Image(systemName: "rectangle.portrait.and.arrow.right")
-                                .foregroundColor(.red)
-                            Text("Sign Out")
-                                .foregroundColor(.red)
-                        }
+                        Label("Sign Out", systemImage: "rectangle.portrait.and.arrow.right")
+                            .foregroundColor(.red)
                     }
                     .disabled(isLoading)
                 }

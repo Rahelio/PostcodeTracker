@@ -69,6 +69,22 @@ def health_check():
         'timestamp': datetime.utcnow().isoformat()
     })
 
+@app.route('/api/debug/user-count', methods=['GET'])
+def debug_user_count():
+    """Debug endpoint to check user count."""
+    try:
+        user_count = User.query.count()
+        return jsonify({
+            'success': True,
+            'user_count': user_count,
+            'timestamp': datetime.utcnow().isoformat()
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 @app.route('/api/auth/register', methods=['POST'])
 def register():
     """Register a new user."""
@@ -171,7 +187,7 @@ def get_profile(current_user):
         
         return jsonify({
             'success': True,
-            'profile': profile_data
+            'data': profile_data
         })
         
     except Exception as e:

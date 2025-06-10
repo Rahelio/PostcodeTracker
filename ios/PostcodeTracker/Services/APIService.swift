@@ -131,6 +131,12 @@ class APIService: ObservableObject {
                 print("API Response (\(httpResponse.statusCode)): \(responseString)")
             }
             
+            // Additional debugging for auth endpoints
+            if request.url?.path.contains("auth") == true {
+                print("Auth endpoint called: \(request.url?.absoluteString ?? "unknown")")
+                print("Response status: \(httpResponse.statusCode)")
+            }
+            
             // Check for HTTP errors
             if httpResponse.statusCode == 401 {
                 clearAuthToken()
