@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import SwiftData
 
 @MainActor
 class JourneyManager: ObservableObject {
@@ -13,6 +14,10 @@ class JourneyManager: ObservableObject {
     
     private let apiService = APIServiceV2.shared
     private let locationManager = LocationManager.shared
+    private let modelContext: ModelContext = {
+        let container = SwiftDataStack.shared
+        return ModelContext(container)
+    }()
     
     private init() {
         Task {
@@ -124,20 +129,20 @@ class JourneyManager: ObservableObject {
     func loadJourneys() async {
         isLoading = true
         errorMessage = nil
-        
         do {
             let response = try await apiService.getJourneys()
-            
             if response.success {
                 journeys = response.journeys
+                // Persist to SwiftData
+                await persistJourneys(response.journeys)
             } else {
                 errorMessage = "Failed to load journeys"
             }
-            
         } catch {
             errorMessage = handleError(error)
+            // Attempt to load cached journeys on network error
+            await loadCachedJourneys()
         }
-        
         isLoading = false
     }
     
@@ -188,5 +193,55 @@ class JourneyManager: ObservableObject {
     
     var hasActiveJourney: Bool {
         return currentJourney != nil && isTrackingJourney
+    }
+    
+    // MARK: - SwiftData Persistence
+    private func persistJourneys(_ journeys: [Journey]) async {
+        for journey in journeys {
+            // Upsert into SwiftData
+            if let entity = try? modelContext.fetch(FetchDescriptor<JourneyLocal>(predicate: #Predicate { $0.id == journey.id })).first {
+                // Update existing
+                entity.startPostcode = journey.startPostcode
+                entity.endPostcode = journey.endPostcode
+                entity.startTime = journey.formattedStartTime ?? Date()
+                entity.endTime = journey.formattedEndTime
+                entity.distanceMiles = journey.distanceMiles
+                entity.isActive = journey.isActive
+            } else {
+                // Insert new
+                let newEntity = JourneyLocal(id: journey.id,
+                                             startPostcode: journey.startPostcode,
+                                             endPostcode: journey.endPostcode,
+                                             startTime: journey.formattedStartTime ?? Date(),
+                                             endTime: journey.formattedEndTime,
+                                             distanceMiles: journey.distanceMiles,
+                                             isActive: journey.isActive)
+                modelContext.insert(newEntity)
+            }
+        }
+        do {
+            try modelContext.save()
+        } catch {
+            print("Failed to save journeys to SwiftData: \(error)")
+        }
+    }
+
+    private func loadCachedJourneys() async {
+        do {
+            let localJourneys = try modelContext.fetch(FetchDescriptor<JourneyLocal>())
+            let mapped = localJourneys.map { entity in
+                Journey(id: entity.id,
+                        startPostcode: entity.startPostcode,
+                        endPostcode: entity.endPostcode,
+                        startTime: ISO8601DateFormatter().string(from: entity.startTime),
+                        endTime: entity.endTime != nil ? ISO8601DateFormatter().string(from: entity.endTime!) : nil,
+                        distanceMiles: entity.distanceMiles,
+                        isActive: entity.isActive,
+                        userId: nil)
+            }
+            self.journeys = mapped
+        } catch {
+            print("Failed to load cached journeys: \(error)")
+        }
     }
 } 

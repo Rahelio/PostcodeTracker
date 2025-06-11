@@ -15,8 +15,14 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 
 # Configuration
+DB_USER = os.environ.get('DB_USER', 'locator')
+DB_PASSWORD = os.environ.get('DB_PASSWORD', 'Aberdeen24')
+DB_HOST = os.environ.get('DB_HOST', 'localhost')
+DB_NAME = os.environ.get('DB_NAME', 'postcodetrackerdb')
+POSTGRES_URI = f'postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}/{DB_NAME}'
+
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', os.urandom(24))
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///postcode_tracker.db')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', POSTGRES_URI)
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', os.urandom(24))
 app.config['JWT_EXPIRATION_DELTA'] = timedelta(days=30)

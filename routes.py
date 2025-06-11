@@ -1,7 +1,7 @@
 import logging
 from datetime import datetime, timedelta
 from functools import wraps
-from flask import request, jsonify
+from flask import request, jsonify, send_file
 from werkzeug.security import generate_password_hash, check_password_hash
 import jwt
 from app import app
@@ -422,4 +422,44 @@ def get_postcode_from_coordinates():
             
     except Exception as e:
         logger.error(f"Error getting postcode from coordinates: {e}")
-        return jsonify({'success': False, 'message': 'Failed to get postcode'}), 500 
+        return jsonify({'success': False, 'message': 'Failed to get postcode'}), 500
+
+@app.route(f'{API_PREFIX}/journeys/export/csv', methods=['GET'])
+@require_auth
+def export_journeys_csv(current_user):
+    """Export completed journeys for the current user as a CSV file."""
+    try:
+        import csv
+        from io import StringIO, BytesIO
+        # Fetch journeys for user
+        journeys = Journey.query.filter_by(user_id=current_user.id).filter(Journey.end_time.isnot(None)).all()
+        # Prepare CSV in memory
+        csv_buffer = StringIO()
+        writer = csv.writer(csv_buffer)
+        # Header
+        writer.writerow([
+            'ID', 'Start Postcode', 'End Postcode', 'Start Time', 'End Time', 'Distance (miles)'
+        ])
+        # Rows
+        for j in journeys:
+            writer.writerow([
+                j.id,
+                j.start_postcode,
+                j.end_postcode or '',
+                j.start_time.isoformat() if j.start_time else '',
+                j.end_time.isoformat() if j.end_time else '',
+                f"{j.distance_miles:.2f}" if j.distance_miles else ''
+            ])
+        # Convert to bytes
+        csv_bytes = BytesIO(csv_buffer.getvalue().encode('utf-8'))
+        # Build response
+        csv_bytes.seek(0)
+        return send_file(
+            csv_bytes,
+            mimetype='text/csv',
+            as_attachment=True,
+            download_name=f'journeys_{current_user.username}.csv'
+        )
+    except Exception as e:
+        logger.error(f"CSV export failed for user {current_user.username}: {e}")
+        return jsonify({'success': False, 'message': 'Failed to export CSV'}), 500 

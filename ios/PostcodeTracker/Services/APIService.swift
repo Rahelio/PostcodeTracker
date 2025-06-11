@@ -85,8 +85,8 @@ enum APIError: Error, LocalizedError {
 class APIServiceV2: ObservableObject {
     static let shared = APIServiceV2()
     
-    // Updated base URL to match current server endpoints (removed deprecated /LocationApp path)
-    private let baseURL = "https://rickys.ddns.net/api"
+    // Base URL includes LocationApp prefix to align with Nginx alias
+    private let baseURL = "https://rickys.ddns.net/LocationApp/api"
     private let session = URLSession.shared
     private var authToken: String?
     
@@ -323,5 +323,20 @@ class APIServiceV2: ObservableObject {
     func healthCheck() async throws -> APIResponse<String> {
         let request = try createRequest(for: "health", method: "GET")
         return try await performRequest(request, responseType: APIResponse<String>.self)
+    }
+    
+    // MARK: - CSV Export
+    func exportJourneysCSV() async throws -> Data {
+        let request = try createRequest(for: "journeys/export/csv", method: "GET")
+        do {
+            let (data, response) = try await session.data(for: request)
+            guard let httpResponse = response as? HTTPURLResponse,
+                  httpResponse.statusCode >= 200 && httpResponse.statusCode < 300 else {
+                throw APIError.serverError("CSV export failed")
+            }
+            return data
+        } catch {
+            throw APIError.networkError(error)
+        }
     }
 } 
