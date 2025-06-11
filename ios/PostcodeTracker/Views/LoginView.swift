@@ -2,7 +2,7 @@ import SwiftUI
 
 struct LoginView: View {
     @StateObject private var authManager = AuthManager.shared
-    @StateObject private var apiService = APIService.shared
+    @StateObject private var apiService = APIServiceV2.shared
     
     @State private var username = ""
     @State private var password = ""

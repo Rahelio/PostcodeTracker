@@ -12,6 +12,9 @@ struct PostcodeTrackerApp: App {
         WindowGroup {
             MainView()
                 .environmentObject(authManager)
+                .onAppear {
+                    print("🚨 POSTCODETRACKER APP STARTED - NEW VERSION")
+                }
         }
     }
 } 

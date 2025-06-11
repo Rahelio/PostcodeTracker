@@ -132,7 +132,7 @@ struct MapView: View {
         errorMessage = nil
         
         do {
-            postcodes = try await APIService.shared.getPostcodes()
+            postcodes = try await APIServiceV2.shared.getPostcodes()
             await createAnnotations()
         } catch {
             errorMessage = error.localizedDescription

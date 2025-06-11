@@ -103,7 +103,7 @@ struct PostcodeListView: View {
         
         do {
             print("Loading postcodes...")
-            postcodes = try await APIService.shared.getPostcodes()
+            postcodes = try await APIServiceV2.shared.getPostcodes()
             print("Successfully loaded \(postcodes.count) postcodes")
         } catch let error as APIError {
             print("API Error occurred: \(error.debugDescription)")
@@ -125,7 +125,7 @@ struct PostcodeListView: View {
         
         do {
             print("Adding new postcode: \(newPostcode)")
-            let postcode = try await APIService.shared.addPostcode(newPostcode, name: newName.isEmpty ? newPostcode : newName)
+            let postcode = try await APIServiceV2.shared.addPostcode(newPostcode, name: newName.isEmpty ? newPostcode : newName)
             print("Successfully added postcode: \(postcode.postcode)")
             postcodes.append(postcode)
             newPostcode = ""
@@ -149,7 +149,7 @@ struct PostcodeListView: View {
                 let postcode = postcodes[index]
                 do {
                     print("Deleting postcode: \(postcode.postcode)")
-                    try await APIService.shared.deletePostcode(id: postcode.id)
+                    try await APIServiceV2.shared.deletePostcode(id: postcode.id)
                     print("Successfully deleted postcode: \(postcode.postcode)")
                     postcodes.remove(at: index)
                 } catch let error as APIError {

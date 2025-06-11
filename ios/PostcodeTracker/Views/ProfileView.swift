@@ -2,7 +2,7 @@ import SwiftUI
 
 struct ProfileView: View {
     @StateObject private var authManager = AuthManager.shared
-    @StateObject private var apiService = APIService.shared
+    @StateObject private var apiService = APIServiceV2.shared
     @State private var showingLogoutAlert = false
     @State private var isLoading = false
     @State private var userProfile: User?

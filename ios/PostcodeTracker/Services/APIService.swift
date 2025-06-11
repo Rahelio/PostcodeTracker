@@ -82,8 +82,8 @@ enum APIError: Error, LocalizedError {
 
 // MARK: - API Service
 @MainActor
-class APIService: ObservableObject {
-    static let shared = APIService()
+class APIServiceV2: ObservableObject {
+    static let shared = APIServiceV2()
     
     private let baseURL = "https://rickys.ddns.net/LocationApp/api"
     private let session = URLSession.shared
@@ -92,8 +92,8 @@ class APIService: ObservableObject {
     private init() {
         // Load saved auth token
         self.authToken = UserDefaults.standard.string(forKey: "auth_token")
-        print("APIService initialized with baseURL: \(baseURL)")
-        print("Loaded auth token: \(authToken != nil ? "Present" : "None")")
+        print("🔥🔥🔥 NEW APIServiceV2 INITIALIZED - baseURL: \(baseURL)")
+        print("🔥🔥🔥 Loaded auth token: \(authToken != nil ? "Present" : "None")")
     }
     
     // MARK: - Auth Token Management

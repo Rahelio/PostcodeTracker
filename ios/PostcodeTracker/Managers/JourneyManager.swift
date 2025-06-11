@@ -11,7 +11,7 @@ class JourneyManager: ObservableObject {
     @Published var isLoading = false
     @Published var errorMessage: String?
     
-    private let apiService = APIService.shared
+    private let apiService = APIServiceV2.shared
     private let locationManager = LocationManager.shared
     
     private init() {
