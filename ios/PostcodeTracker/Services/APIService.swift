@@ -85,7 +85,8 @@ enum APIError: Error, LocalizedError {
 class APIServiceV2: ObservableObject {
     static let shared = APIServiceV2()
     
-    private let baseURL = "https://rickys.ddns.net/LocationApp/api"
+    // Updated base URL to match current server endpoints (removed deprecated /LocationApp path)
+    private let baseURL = "https://rickys.ddns.net/api"
     private let session = URLSession.shared
     private var authToken: String?
     

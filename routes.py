@@ -11,6 +11,9 @@ from postcode_service import PostcodeService
 
 logger = logging.getLogger(__name__)
 
+# Base path prefix for all API routes (matches Nginx alias)
+API_PREFIX = '/LocationApp/api'
+
 # JWT Token Management
 def create_token(user_id: int) -> str:
     """Create a JWT token for the user."""
@@ -60,7 +63,7 @@ def require_auth(f):
     return decorated_function
 
 # API Routes
-@app.route('/api/health', methods=['GET'])
+@app.route(f'{API_PREFIX}/health', methods=['GET'])
 def health_check():
     """Health check endpoint."""
     return jsonify({
@@ -69,7 +72,7 @@ def health_check():
         'timestamp': datetime.utcnow().isoformat()
     })
 
-@app.route('/api/debug/user-count', methods=['GET'])
+@app.route(f'{API_PREFIX}/debug/user-count', methods=['GET'])
 def debug_user_count():
     """Debug endpoint to check user count."""
     try:
@@ -85,7 +88,7 @@ def debug_user_count():
             'error': str(e)
         }), 500
 
-@app.route('/api/auth/register', methods=['POST'])
+@app.route(f'{API_PREFIX}/auth/register', methods=['POST'])
 def register():
     """Register a new user."""
     try:
@@ -133,7 +136,7 @@ def register():
         db.session.rollback()
         return jsonify({'success': False, 'message': 'Registration failed'}), 500
 
-@app.route('/api/auth/login', methods=['POST'])
+@app.route(f'{API_PREFIX}/auth/login', methods=['POST'])
 def login():
     """Login user."""
     try:
@@ -171,7 +174,7 @@ def login():
         logger.error(f"Login error: {e}")
         return jsonify({'success': False, 'message': 'Login failed'}), 500
 
-@app.route('/api/auth/profile', methods=['GET'])
+@app.route(f'{API_PREFIX}/auth/profile', methods=['GET'])
 @require_auth
 def get_profile(current_user):
     """Get user profile information."""
@@ -197,7 +200,7 @@ def get_profile(current_user):
         logger.error(f"Error getting profile for user {current_user.username}: {e}")
         return jsonify({'success': False, 'message': 'Failed to get profile'}), 500
 
-@app.route('/api/auth/logout', methods=['POST'])
+@app.route(f'{API_PREFIX}/auth/logout', methods=['POST'])
 @require_auth
 def logout(current_user):
     """Logout user (client should delete token)."""
@@ -207,7 +210,7 @@ def logout(current_user):
         'message': 'Logged out successfully'
     })
 
-@app.route('/api/journey/start', methods=['POST'])
+@app.route(f'{API_PREFIX}/journey/start', methods=['POST'])
 @require_auth
 def start_journey(current_user):
     """Start a new journey using GPS coordinates. Requires authentication."""
@@ -270,7 +273,7 @@ def start_journey(current_user):
         db.session.rollback()
         return jsonify({'success': False, 'message': 'Failed to start journey'}), 500
 
-@app.route('/api/journey/end', methods=['POST'])
+@app.route(f'{API_PREFIX}/journey/end', methods=['POST'])
 @require_auth
 def end_journey(current_user):
     """End the active journey. Requires authentication."""
@@ -335,7 +338,7 @@ def end_journey(current_user):
         db.session.rollback()
         return jsonify({'success': False, 'message': 'Failed to end journey'}), 500
 
-@app.route('/api/journey/active', methods=['GET'])
+@app.route(f'{API_PREFIX}/journey/active', methods=['GET'])
 @require_auth
 def get_active_journey(current_user):
     """Get the current active journey for the authenticated user."""
@@ -359,7 +362,7 @@ def get_active_journey(current_user):
         logger.error(f"Error getting active journey for user {current_user.username}: {e}")
         return jsonify({'success': False, 'message': 'Failed to get active journey'}), 500
 
-@app.route('/api/journeys', methods=['GET'])
+@app.route(f'{API_PREFIX}/journeys', methods=['GET'])
 @require_auth
 def get_journeys(current_user):
     """Get all journeys for the authenticated user."""
@@ -377,12 +380,12 @@ def get_journeys(current_user):
         logger.error(f"Error getting journeys for user {current_user.username}: {e}")
         return jsonify({'success': False, 'message': 'Failed to get journeys'}), 500
 
-@app.route('/api/postcodes', methods=['GET'])
+@app.route(f'{API_PREFIX}/postcodes', methods=['GET'])
 def get_postcodes():
     """Legacy endpoint for postcodes - returns empty list since we removed postcode management."""
     return jsonify([])
 
-@app.route('/api/postcode/from-coordinates', methods=['GET'])
+@app.route(f'{API_PREFIX}/postcode/from-coordinates', methods=['GET'])
 def get_postcode_from_coordinates():
     """Get UK postcode from coordinates."""
     try:
