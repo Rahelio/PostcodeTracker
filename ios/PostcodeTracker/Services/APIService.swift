@@ -20,7 +20,21 @@ struct AuthResponseV2: Codable {
         case success
         case message
         case token
+        case accessToken = "access_token"
         case user
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        success = try container.decode(Bool.self, forKey: .success)
+        message = try container.decode(String.self, forKey: .message)
+        // Prefer "token" key, but if nil try "access_token"
+        if let primary = try container.decodeIfPresent(String.self, forKey: .token) {
+            token = primary
+        } else {
+            token = try container.decodeIfPresent(String.self, forKey: .accessToken)
+        }
+        user = try container.decodeIfPresent(User.self, forKey: .user)
     }
 }
 
@@ -161,6 +175,12 @@ class APIServiceV2: ObservableObject {
             if httpResponse.statusCode == 401 {
                 clearAuthToken()
                 throw APIError.unauthorized
+            }
+            
+            // Content-Type check: ensure JSON
+            if let contentType = httpResponse.value(forHTTPHeaderField: "Content-Type"), !contentType.contains("application/json") {
+                let snippet = String(data: data.prefix(200), encoding: .utf8) ?? "<non-utf8>"
+                throw APIError.decodingError(NSError(domain: "APIService", code: 0, userInfo: [NSLocalizedDescriptionKey: "Expected JSON but got \(contentType). Snippet: \(snippet)"]))
             }
             
             guard httpResponse.statusCode >= 200 && httpResponse.statusCode < 300 else {

@@ -462,4 +462,21 @@ def export_journeys_csv(current_user):
         )
     except Exception as e:
         logger.error(f"CSV export failed for user {current_user.username}: {e}")
-        return jsonify({'success': False, 'message': 'Failed to export CSV'}), 500 
+        return jsonify({'success': False, 'message': 'Failed to export CSV'}), 500
+
+# --- JSON error handlers for unknown routes and methods ---
+@app.errorhandler(404)
+def handle_404(e):
+    return jsonify({
+        'success': False,
+        'message': 'Not found',
+        'error': 404
+    }), 404
+
+@app.errorhandler(405)
+def handle_405(e):
+    return jsonify({
+        'success': False,
+        'message': 'Method not allowed',
+        'error': 405
+    }), 405 
