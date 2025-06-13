@@ -41,19 +41,22 @@ class CSVExporter {
         
         // Data rows
         for journey in journeys {
+            let journeyId = "\(journey.id)"
+            let startPostcode = escapeCSVField(journey.startPostcode)
+            let endPostcode = escapeCSVField(journey.endPostcode ?? "")
+            let startTime = escapeCSVField(journey.startTime)
+            let endTime = escapeCSVField(journey.endTime ?? "")
+            let distance = journey.distanceMiles.map { String(format: "%.2f", $0) } ?? ""
+            let duration = calculateDuration(start: journey.formattedStartTime, end: journey.formattedEndTime)
+            let status = journey.isActive ? "Active" : "Completed"
+            let startLat = "\(journey.startLatitude)"
+            let startLon = "\(journey.startLongitude)"
+            let endLat = journey.endLatitude.map { "\($0)" } ?? ""
+            let endLon = journey.endLongitude.map { "\($0)" } ?? ""
+            
             let row = [
-                "\(journey.id)",
-                escapeCSVField(journey.startPostcode),
-                escapeCSVField(journey.endPostcode ?? ""),
-                escapeCSVField(journey.startTime),
-                escapeCSVField(journey.endTime ?? ""),
-                journey.distanceMiles != nil ? String(format: "%.2f", journey.distanceMiles!) : "",
-                calculateDuration(start: journey.formattedStartTime, end: journey.formattedEndTime),
-                journey.isActive ? "Active" : "Completed",
-                journey.startLatitude != nil ? "\(journey.startLatitude!)" : "",
-                journey.startLongitude != nil ? "\(journey.startLongitude!)" : "",
-                journey.endLatitude != nil ? "\(journey.endLatitude!)" : "",
-                journey.endLongitude != nil ? "\(journey.endLongitude!)" : ""
+                journeyId, startPostcode, endPostcode, startTime, endTime,
+                distance, duration, status, startLat, startLon, endLat, endLon
             ]
             csvLines.append(row.joined(separator: ","))
         }
@@ -72,9 +75,9 @@ class CSVExporter {
     private static func calculateDuration(start: Date?, end: Date?) -> String {
         guard let start = start, let end = end else { return "" }
         
-        let duration = end.timeIntervalSince(start)
-        let hours = Int(duration) / 3600
-        let minutes = Int(duration % 3600) / 60
+        let duration = Int(end.timeIntervalSince(start))
+        let hours = duration / 3600
+        let minutes = (duration % 3600) / 60
         
         if hours > 0 {
             return "\(hours)h \(minutes)m"

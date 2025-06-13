@@ -7,7 +7,7 @@ struct PostcodesView: View {
     @State private var showingAddSheet = false
     @State private var showingDeleteAlert = false
     @State private var showingBulkDeleteAlert = false
-    @State private var selectedPostcodes = Set<SavedPostcode.ID>()
+    @State private var selectedPostcodes = Set<UUID>()
     @State private var isSelectionMode = false
     @State private var editingPostcode: SavedPostcode?
     @State private var editingLabel = ""
@@ -42,7 +42,7 @@ struct PostcodesView: View {
                     // Postcode list
                     List {
                         ForEach(postcodeManager.savedPostcodes) { postcode in
-                            PostcodeRow(
+                            SavedPostcodeRow(
                                 postcode: postcode,
                                 isSelected: selectedPostcodes.contains(postcode.id),
                                 isSelectionMode: isSelectionMode,
@@ -180,7 +180,7 @@ struct PostcodesView: View {
 
 // MARK: - Supporting Views
 
-struct PostcodeRow: View {
+struct SavedPostcodeRow: View {
     let postcode: SavedPostcode
     let isSelected: Bool
     let isSelectionMode: Bool

@@ -198,6 +198,11 @@ class APIServiceV2: ObservableObject {
             // Use the new handleResponse method
             return try await handleResponse(httpResponse, data: data, request: request)
         } catch {
+            // If it's already an APIError, re-throw it as-is (don't wrap it)
+            if let apiError = error as? APIError {
+                throw apiError
+            }
+            
             // Handle network errors (including timeouts) without clearing auth token
             let nsError = error as NSError
             if nsError.code == NSURLErrorTimedOut {

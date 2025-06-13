@@ -5,8 +5,8 @@ struct Journey: Codable, Identifiable {
     let userId: Int
     let startTime: String
     let endTime: String?
-    let startLatitude: Double
-    let startLongitude: Double
+    let startLatitude: Double?
+    let startLongitude: Double?
     let endLatitude: Double?
     let endLongitude: Double?
     let startPostcode: String
@@ -21,8 +21,8 @@ struct Journey: Codable, Identifiable {
          userId: Int,
          startTime: String,
          endTime: String?,
-         startLatitude: Double,
-         startLongitude: Double,
+         startLatitude: Double?,
+         startLongitude: Double?,
          endLatitude: Double?,
          endLongitude: Double?,
          startPostcode: String,

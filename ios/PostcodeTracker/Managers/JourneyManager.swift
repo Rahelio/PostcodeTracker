@@ -525,8 +525,8 @@ class JourneyManager: ObservableObject {
                        userId: 0, // Default value since we don't store this locally
                        startTime: ISO8601DateFormatter().string(from: entity.startTime),
                        endTime: entity.endTime != nil ? ISO8601DateFormatter().string(from: entity.endTime!) : nil,
-                       startLatitude: 0, // Default value since we don't store this locally
-                       startLongitude: 0, // Default value since we don't store this locally
+                       startLatitude: nil, // Manual journeys don't have coordinates
+                       startLongitude: nil, // Manual journeys don't have coordinates
                        endLatitude: nil,
                        endLongitude: nil,
                        startPostcode: entity.startPostcode,
