@@ -91,6 +91,59 @@ def debug_user_count():
             'error': str(e)
         }), 500
 
+@app.route(f'{API_PREFIX}/debug/active-journeys', methods=['GET'])
+def debug_active_journeys():
+    """Debug endpoint to check active journeys."""
+    try:
+        active_journeys = Journey.query.filter(Journey.end_time.is_(None)).all()
+        return jsonify({
+            'success': True,
+            'active_journeys': [
+                {
+                    'id': j.id,
+                    'user_id': j.user_id,
+                    'username': j.user.username if j.user else 'Unknown',
+                    'start_postcode': j.start_postcode,
+                    'start_time': j.start_time.isoformat() if j.start_time else None
+                } for j in active_journeys
+            ],
+            'count': len(active_journeys),
+            'timestamp': datetime.utcnow().isoformat()
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route(f'{API_PREFIX}/debug/clear-active-journeys', methods=['POST'])
+def debug_clear_active_journeys():
+    """Debug endpoint to clear all active journeys."""
+    try:
+        active_journeys = Journey.query.filter(Journey.end_time.is_(None)).all()
+        count = len(active_journeys)
+        
+        for journey in active_journeys:
+            # Mark as ended with current time
+            journey.end_time = datetime.utcnow()
+            journey.end_postcode = journey.start_postcode  # Use start postcode as end
+            journey.distance_miles = 0.0  # Zero distance for debug cleanup
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': f'Cleared {count} active journeys',
+            'cleared_count': count,
+            'timestamp': datetime.utcnow().isoformat()
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 @app.route(f'{API_PREFIX}/auth/register', methods=['POST'])
 def register():
     """Register a new user."""

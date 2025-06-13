@@ -204,6 +204,8 @@ class JourneyManager: ObservableObject {
         defer { isCheckingActiveJourney = false }
         
         print("📝 Starting active journey check...")
+        print("📝 Current journey state BEFORE check: \(currentJourney?.id ?? -1)")
+        print("📝 Is tracking BEFORE check: \(isTrackingJourney)")
         
         // First, let's test the token with a simpler endpoint
         do {
@@ -222,16 +224,21 @@ class JourneyManager: ObservableObject {
         }
         
         do {
+            print("🔍 About to call getActiveJourney API")
             let response = try await apiService.getActiveJourney()
             print("📝 Active journey check successful")
+            print("📝 Server response: active=\(response.active), journey=\(response.journey?.id ?? -1)")
             
             if response.active, let journey = response.journey {
                 print("📝 Found active journey: \(journey.id)")
+                print("📝 Journey details: \(journey.startPostcode) started at \(journey.startTime)")
+                print("🚨 SETTING currentJourney and isTrackingJourney to TRUE")
                 currentJourney = journey
                 isTrackingJourney = true
                 saveJourneyState()
             } else {
                 print("📝 No active journey found")
+                print("🚨 CLEARING currentJourney and isTrackingJourney")
                 currentJourney = nil
                 isTrackingJourney = false
                 clearJourneyState()
@@ -248,6 +255,8 @@ class JourneyManager: ObservableObject {
                 clearJourneyState()
             }
         }
+        
+        print("📝 FINAL STATE after check: journey=\(currentJourney?.id ?? -1), tracking=\(isTrackingJourney)")
     }
     
     func loadJourneys() async {
