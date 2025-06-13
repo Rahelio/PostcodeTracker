@@ -27,10 +27,13 @@ def verify_token(token: str) -> int:
     """Verify JWT token and return user ID."""
     try:
         payload = jwt.decode(token, app.config['JWT_SECRET_KEY'], algorithms=['HS256'])
+        logger.info(f"Token verified successfully for user_id: {payload['user_id']}")
         return payload['user_id']
     except jwt.ExpiredSignatureError:
+        logger.warning("Token expired")
         return None
-    except jwt.InvalidTokenError:
+    except jwt.InvalidTokenError as e:
+        logger.warning(f"Invalid token: {e}")
         return None
 
 def get_current_user():
