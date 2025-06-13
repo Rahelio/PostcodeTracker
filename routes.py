@@ -633,6 +633,42 @@ def get_postcode_from_coordinates():
         logger.error(f"Error getting postcode from coordinates: {e}")
         return jsonify({'success': False, 'message': 'Failed to get postcode'}), 500
 
+@app.route(f'{API_PREFIX}/journeys/delete', methods=['POST'])
+@require_auth
+def delete_journeys(current_user):
+    """Delete selected journeys for the current user."""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'message': 'No data provided'}), 400
+        
+        journey_ids = data.get('journey_ids', [])
+        if not journey_ids or not isinstance(journey_ids, list):
+            return jsonify({'success': False, 'message': 'Journey IDs are required'}), 400
+        
+        # Find and delete journeys belonging to this user
+        deleted_count = 0
+        for journey_id in journey_ids:
+            journey = Journey.query.filter_by(id=journey_id, user_id=current_user.id).first()
+            if journey:
+                db.session.delete(journey)
+                deleted_count += 1
+        
+        db.session.commit()
+        
+        logger.info(f"User {current_user.username} deleted {deleted_count} journey(s)")
+        
+        return jsonify({
+            'success': True,
+            'message': f'Successfully deleted {deleted_count} journey(s)',
+            'deleted_count': deleted_count
+        })
+        
+    except Exception as e:
+        logger.error(f"Error deleting journeys for user {current_user.username}: {e}")
+        db.session.rollback()
+        return jsonify({'success': False, 'message': 'Failed to delete journeys'}), 500
+
 @app.route(f'{API_PREFIX}/journeys/export/csv', methods=['GET'])
 @require_auth
 def export_journeys_csv(current_user):
@@ -655,22 +691,32 @@ def export_journeys_csv(current_user):
         
         # Data rows
         for j in journeys:
-            # Extract date and time components
-            start_date = j.start_time.strftime('%Y-%m-%d') if j.start_time else ''
-            start_time = j.start_time.strftime('%H:%M:%S') if j.start_time else ''
-            end_time = j.end_time.strftime('%H:%M:%S') if j.end_time else ''
-            
-            # Calculate duration
+            # Extract date and time components - handle datetime objects properly
+            start_date = ''
+            start_time = ''
+            end_time = ''
             duration = ''
-            if j.start_time and j.end_time:
-                time_diff = j.end_time - j.start_time
-                total_seconds = int(time_diff.total_seconds())
-                hours = total_seconds // 3600
-                minutes = (total_seconds % 3600) // 60
-                if hours > 0:
-                    duration = f"{hours}h {minutes}m"
-                else:
-                    duration = f"{minutes}m"
+            
+            try:
+                if j.start_time:
+                    start_date = j.start_time.strftime('%Y-%m-%d')
+                    start_time = j.start_time.strftime('%H:%M:%S')
+                
+                if j.end_time:
+                    end_time = j.end_time.strftime('%H:%M:%S')
+                
+                # Calculate duration
+                if j.start_time and j.end_time:
+                    time_diff = j.end_time - j.start_time
+                    total_seconds = int(time_diff.total_seconds())
+                    hours = total_seconds // 3600
+                    minutes = (total_seconds % 3600) // 60
+                    if hours > 0:
+                        duration = f"{hours}h {minutes}m"
+                    else:
+                        duration = f"{minutes}m"
+            except Exception as e:
+                logger.warning(f"Error formatting datetime for journey {j.id}: {e}")
             
             writer.writerow([
                 j.label or '',  # Label (user created)

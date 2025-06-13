@@ -376,6 +376,16 @@ class APIServiceV2: ObservableObject {
         return try await performRequest(request, responseType: APIResponse<String>.self)
     }
     
+    // MARK: - Journey Deletion
+    func deleteJourneys(journeyIds: [Int]) async throws -> APIResponse<String> {
+        var request = try createRequest(for: "journeys/delete", method: "POST")
+        
+        let body = ["journey_ids": journeyIds]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        
+        return try await performRequest(request, responseType: APIResponse<String>.self)
+    }
+    
     // MARK: - CSV Export
     func exportJourneysCSV() async throws -> Data {
         let request = try createRequest(for: "journeys/export/csv", method: "GET")

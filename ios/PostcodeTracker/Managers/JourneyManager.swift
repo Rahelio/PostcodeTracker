@@ -499,26 +499,32 @@ class JourneyManager: ObservableObject {
         
         defer { isLoading = false }
         
-        // For now, we'll just remove from local storage
-        // In the future, you could add server-side deletion API
-        
         do {
-            // Remove from local journeys array
-            let idsToDelete = Set(journeysToDelete.map { $0.id })
-            journeys.removeAll { idsToDelete.contains($0.id) }
+            let journeyIds = journeysToDelete.map { $0.id }
             
-            // Remove from SwiftData
-            let localJourneys = try modelContext.fetch(FetchDescriptor<JourneyLocal>())
-            for localJourney in localJourneys {
-                if idsToDelete.contains(localJourney.id) {
-                    modelContext.delete(localJourney)
+            // Delete from server
+            let response = try await apiService.deleteJourneys(journeyIds: journeyIds)
+            
+            if response.success {
+                // Remove from local journeys array
+                let idsToDelete = Set(journeyIds)
+                journeys.removeAll { idsToDelete.contains($0.id) }
+                
+                // Remove from SwiftData
+                let localJourneys = try modelContext.fetch(FetchDescriptor<JourneyLocal>())
+                for localJourney in localJourneys {
+                    if idsToDelete.contains(localJourney.id) {
+                        modelContext.delete(localJourney)
+                    }
                 }
+                try modelContext.save()
+                
+                print("Successfully deleted \(journeysToDelete.count) journey(s) from server and local storage")
+            } else {
+                errorMessage = response.message ?? "Failed to delete journeys"
             }
-            try modelContext.save()
-            
-            print("Successfully deleted \(journeysToDelete.count) journey(s)")
         } catch {
-            errorMessage = "Failed to delete journeys: \(error.localizedDescription)"
+            errorMessage = handleError(error)
         }
     }
     
