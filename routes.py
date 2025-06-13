@@ -448,6 +448,68 @@ def end_journey(current_user):
         db.session.rollback()
         return jsonify({'success': False, 'message': 'Failed to end journey'}), 500
 
+@app.route(f'{API_PREFIX}/journey/manual', methods=['POST'])
+@require_auth
+def create_manual_journey(current_user):
+    """Create a manual journey using postcodes. Requires authentication."""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'message': 'No data provided'}), 400
+        
+        start_postcode = data.get('start_postcode', '').strip().upper()
+        end_postcode = data.get('end_postcode', '').strip().upper()
+        
+        if not start_postcode or not end_postcode:
+            return jsonify({'success': False, 'message': 'Start and end postcodes are required'}), 400
+        
+        # Validate postcodes (basic UK postcode pattern)
+        import re
+        postcode_pattern = r'^[A-Z]{1,2}[0-9][A-Z0-9]? ?[0-9][A-Z]{2}$'
+        
+        if not re.match(postcode_pattern, start_postcode) or not re.match(postcode_pattern, end_postcode):
+            return jsonify({'success': False, 'message': 'Invalid postcode format'}), 400
+        
+        if start_postcode == end_postcode:
+            return jsonify({'success': False, 'message': 'Start and end postcodes cannot be the same'}), 400
+        
+        # Calculate distance between postcodes
+        distance = PostcodeService.calculate_distance(start_postcode, end_postcode)
+        if distance is None:
+            logger.warning(f"Could not calculate distance between {start_postcode} and {end_postcode}")
+            # Continue anyway - we'll store the journey without distance
+        
+        # Create manual journey (already completed)
+        journey = Journey(
+            start_postcode=start_postcode,
+            end_postcode=end_postcode,
+            start_time=datetime.utcnow(),
+            end_time=datetime.utcnow(),  # Manual journeys are immediately completed
+            distance_miles=distance,
+            user_id=current_user.id,
+            # No coordinates for manual journeys
+            start_latitude=None,
+            start_longitude=None,
+            end_latitude=None,
+            end_longitude=None
+        )
+        
+        db.session.add(journey)
+        db.session.commit()
+        
+        logger.info(f"User {current_user.username} created manual journey {journey.id}: {start_postcode} to {end_postcode}, distance: {distance}")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Manual journey created successfully',
+            'journey': journey.to_dict()
+        }), 201
+        
+    except Exception as e:
+        logger.error(f"Error creating manual journey: {e}")
+        db.session.rollback()
+        return jsonify({'success': False, 'message': 'Failed to create manual journey'}), 500
+
 @app.route(f'{API_PREFIX}/journey/active', methods=['GET'])
 @require_auth
 def get_active_journey(current_user):

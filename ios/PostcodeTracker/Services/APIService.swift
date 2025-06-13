@@ -307,6 +307,19 @@ class APIServiceV2: ObservableObject {
         return try await performRequest(request, responseType: JourneyResponse.self)
     }
     
+    func createManualJourney(startPostcode: String, endPostcode: String) async throws -> JourneyResponse {
+        var request = try createRequest(for: "journey/manual", method: "POST")
+        
+        let body = [
+            "start_postcode": startPostcode,
+            "end_postcode": endPostcode
+        ]
+        
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        
+        return try await performRequest(request, responseType: JourneyResponse.self)
+    }
+    
     func getActiveJourney() async throws -> ActiveJourneyResponse {
         let request = try createRequest(for: "journey/active", method: "GET")
         return try await performRequest(request, responseType: ActiveJourneyResponse.self)

@@ -3,165 +3,276 @@ import CoreLocation
 
 struct JourneysView: View {
     @StateObject private var journeyManager = JourneyManager.shared
-    @State private var showingAlert = false
-    @State private var alertMessage = ""
+    @State private var selectedJourneys = Set<Int>()
+    @State private var isSelectionMode = false
+    @State private var showingBulkDeleteAlert = false
+    @State private var showingDeleteAllAlert = false
+    @State private var showingExportSheet = false
+    @State private var exportFileURL: URL?
     
     var body: some View {
         NavigationView {
-            ZStack {
-                Color(.systemGroupedBackground)
-                    .ignoresSafeArea()
-                
-                if journeyManager.isLoading {
-                    ProgressView("Loading journeys...")
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+            VStack {
+                if journeyManager.isLoading && journeyManager.journeys.isEmpty {
+                    VStack(spacing: 16) {
+                        ProgressView()
+                            .scaleEffect(1.2)
+                        Text("Loading journeys...")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else if journeyManager.journeys.isEmpty {
-                    EmptyJourneysView()
+                    // Empty state
+                    VStack(spacing: 20) {
+                        Image(systemName: "clock")
+                            .font(.system(size: 60))
+                            .foregroundColor(.gray)
+                        
+                        Text("No Journeys Yet")
+                            .font(.title2)
+                            .fontWeight(.medium)
+                        
+                        Text("Start tracking your journeys or create manual ones")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                    }
+                    .padding()
                 } else {
-                    JourneysList()
+                    // Journey list
+                    List {
+                        ForEach(journeyManager.journeys, id: \.id) { journey in
+                            JourneyRow(
+                                journey: journey,
+                                isSelected: selectedJourneys.contains(journey.id),
+                                isSelectionMode: isSelectionMode,
+                                onTap: {
+                                    if isSelectionMode {
+                                        toggleSelection(journey)
+                                    }
+                                }
+                            )
+                        }
+                        .onDelete(perform: deleteJourneys)
+                    }
+                    .refreshable {
+                        await journeyManager.refreshJourneys()
+                    }
                 }
             }
             .navigationTitle("Journey History")
-            .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                ToolbarItemGroup(placement: .navigationBarTrailing) {
+                    if !journeyManager.journeys.isEmpty {
+                        Menu("Export") {
+                            Button("Export All") {
+                                exportJourneys(journeyManager.journeys)
+                            }
+                            
+                            if isSelectionMode && !selectedJourneys.isEmpty {
+                                Button("Export Selected") {
+                                    let selectedJourneyObjects = journeyManager.journeys.filter { selectedJourneys.contains($0.id) }
+                                    exportJourneys(selectedJourneyObjects)
+                                }
+                            }
+                        }
+                        .disabled(journeyManager.journeys.isEmpty)
+                        
+                        Button(isSelectionMode ? "Done" : "Select") {
+                            isSelectionMode.toggle()
+                            if !isSelectionMode {
+                                selectedJourneys.removeAll()
+                            }
+                        }
+                    }
+                }
+                
+                ToolbarItemGroup(placement: .navigationBarLeading) {
+                    if isSelectionMode {
+                        Menu("Delete") {
+                            if !selectedJourneys.isEmpty {
+                                Button("Delete Selected (\(selectedJourneys.count))", role: .destructive) {
+                                    showingBulkDeleteAlert = true
+                                }
+                            }
+                            
+                            Button("Delete All", role: .destructive) {
+                                showingDeleteAllAlert = true
+                            }
+                        }
+                    }
+                }
+            }
+            .alert("Delete Journeys", isPresented: $showingBulkDeleteAlert) {
+                Button("Delete", role: .destructive) {
+                    deleteBulkJourneys()
+                }
+                Button("Cancel", role: .cancel) { }
+            } message: {
+                Text("Are you sure you want to delete \(selectedJourneys.count) journey(s)?")
+            }
+            .alert("Delete All Journeys", isPresented: $showingDeleteAllAlert) {
+                Button("Delete All", role: .destructive) {
+                    deleteAllJourneys()
+                }
+                Button("Cancel", role: .cancel) { }
+            } message: {
+                Text("Are you sure you want to delete all \(journeyManager.journeys.count) journeys? This cannot be undone.")
+            }
+            .sheet(isPresented: $showingExportSheet) {
+                if let fileURL = exportFileURL {
+                    ActivityViewController(activityItems: [fileURL])
+                }
+            }
+            .alert("Error", isPresented: .constant(journeyManager.errorMessage != nil)) {
+                Button("OK") {
+                    journeyManager.clearError()
+                }
+            } message: {
+                Text(journeyManager.errorMessage ?? "")
+            }
         }
-        .navigationViewStyle(.stack)
         .onAppear {
-            loadJourneys()
-        }
-        .alert("Journey Update", isPresented: $showingAlert) {
-            Button("OK", role: .cancel) { }
-        } message: {
-            Text(alertMessage)
-        }
-    }
-    
-    private func loadJourneys() {
-        Task {
-            do {
-                try await journeyManager.loadJourneys()
-            } catch {
-                alertMessage = "Failed to load journeys: \(error.localizedDescription)"
-                showingAlert = true
-            }
-        }
-    }
-}
-
-struct EmptyJourneysView: View {
-    var body: some View {
-        VStack(spacing: 20) {
-            Image(systemName: "map")
-                .font(.system(size: 60))
-                .foregroundColor(.secondary)
-            
-            Text("No Journeys Yet")
-                .font(.title2)
-                .fontWeight(.semibold)
-            
-            Text("Start tracking your journeys to see them here")
-                .font(.body)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-}
-
-struct JourneysList: View {
-    @StateObject private var journeyManager = JourneyManager.shared
-    
-    var body: some View {
-        List {
-            ForEach(journeyManager.journeys, id: \.id) { journey in
-                JourneyRowView(journey: journey)
-                    .listRowBackground(Color(.systemBackground))
-            }
-        }
-        .listStyle(.insetGrouped)
-        .refreshable {
             Task {
-                try? await journeyManager.loadJourneys()
+                await journeyManager.loadJourneys()
             }
+        }
+    }
+    
+    // MARK: - Helper Methods
+    
+    private func toggleSelection(_ journey: Journey) {
+        if selectedJourneys.contains(journey.id) {
+            selectedJourneys.remove(journey.id)
+        } else {
+            selectedJourneys.insert(journey.id)
+        }
+    }
+    
+    private func deleteJourneys(offsets: IndexSet) {
+        let journeysToDelete = offsets.map { journeyManager.journeys[$0] }
+        Task {
+            await journeyManager.deleteJourneys(journeysToDelete)
+        }
+    }
+    
+    private func deleteBulkJourneys() {
+        let journeysToDelete = journeyManager.journeys.filter { selectedJourneys.contains($0.id) }
+        Task {
+            await journeyManager.deleteJourneys(journeysToDelete)
+        }
+        selectedJourneys.removeAll()
+        isSelectionMode = false
+    }
+    
+    private func deleteAllJourneys() {
+        Task {
+            await journeyManager.deleteJourneys(journeyManager.journeys)
+        }
+        selectedJourneys.removeAll()
+        isSelectionMode = false
+    }
+    
+    private func exportJourneys(_ journeys: [Journey]) {
+        if let fileURL = CSVExporter.exportJourneys(journeys) {
+            exportFileURL = fileURL
+            showingExportSheet = true
         }
     }
 }
 
-struct JourneyRowView: View {
+// MARK: - Supporting Views
+
+struct JourneyRow: View {
     let journey: Journey
+    let isSelected: Bool
+    let isSelectionMode: Bool
+    let onTap: () -> Void
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("\(journey.startPostcode) → \(journey.endPostcode ?? "In Progress")")
+        HStack {
+            if isSelectionMode {
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .foregroundColor(isSelected ? .blue : .gray)
+                    .onTapGesture {
+                        onTap()
+                    }
+            }
+            
+            VStack(alignment: .leading, spacing: 8) {
+                // Postcodes
+                HStack {
+                    Text(journey.startPostcode)
                         .font(.headline)
-                        .fontWeight(.semibold)
+                        .fontWeight(.medium)
                     
-                    if let startTime = journey.formattedStartTime, let endTime = journey.formattedEndTime {
-                        Text(formatJourneyTime(start: startTime, end: endTime))
+                    Image(systemName: "arrow.right")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    
+                    Text(journey.endPostcode ?? "In Progress")
+                        .font(.headline)
+                        .fontWeight(.medium)
+                        .foregroundColor(journey.endPostcode == nil ? .orange : .primary)
+                }
+                
+                // Details row
+                HStack {
+                    if let distance = journey.distanceMiles {
+                        Label("\(String(format: "%.1f", distance)) miles", 
+                              systemImage: "road.lanes")
                             .font(.caption)
                             .foregroundColor(.secondary)
-                    } else if let startTime = journey.formattedStartTime {
-                        Text("Started \(formatRelativeTime(startTime))")
+                    }
+                    
+                    if journey.isActive {
+                        Label("Active", systemImage: "dot.radiowaves.left.and.right")
                             .font(.caption)
-                            .foregroundColor(.blue)
-                    } else {
-                        Text("Started \(journey.startTime)")
+                            .foregroundColor(.orange)
+                    }
+                    
+                    Spacer()
+                    
+                    if let startTime = journey.formattedStartTime {
+                        Text(startTime.formatted(date: .abbreviated, time: .shortened))
                             .font(.caption)
-                            .foregroundColor(.blue)
+                            .foregroundColor(.secondary)
                     }
                 }
                 
-                Spacer()
-                
-                VStack(alignment: .trailing, spacing: 4) {
-                    if let distance = journey.distanceMiles {
-                        Text("\(String(format: "%.1f", distance)) mi")
-                            .font(.subheadline)
-                            .fontWeight(.medium)
+                // GPS indicator for manual vs tracked journeys
+                if journey.startLatitude == nil && journey.startLongitude == nil {
+                    HStack {
+                        Image(systemName: "hand.point.up.left")
+                            .font(.caption2)
+                        Text("Manual Journey")
+                            .font(.caption2)
                     }
-                    
-                    if journey.endTime == nil {
-                        Text("Active")
-                            .font(.caption)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 2)
-                            .background(Color.blue.opacity(0.2))
-                            .foregroundColor(.blue)
-                            .cornerRadius(4)
-                    }
+                    .foregroundColor(.blue)
                 }
             }
         }
-        .padding(.vertical, 4)
-    }
-    
-    private func formatJourneyTime(start: Date, end: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        formatter.timeStyle = .short
-        
-        if Calendar.current.isDate(start, inSameDayAs: end) {
-            // Same day: show date and time range
-            let dateFormatter = DateFormatter()
-            dateFormatter.dateStyle = .medium
-            
-            let timeFormatter = DateFormatter()
-            timeFormatter.timeStyle = .short
-            
-            return "\(dateFormatter.string(from: start)) \(timeFormatter.string(from: start)) - \(timeFormatter.string(from: end))"
-        } else {
-            // Different days: show full start and end
-            return "\(formatter.string(from: start)) - \(formatter.string(from: end))"
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if isSelectionMode {
+                onTap()
+            }
         }
     }
+}
+
+// MARK: - Activity View Controller for Sharing
+
+struct ActivityViewController: UIViewControllerRepresentable {
+    let activityItems: [Any]
     
-    private func formatRelativeTime(_ date: Date) -> String {
-        let formatter = RelativeDateTimeFormatter()
-        formatter.unitsStyle = .abbreviated
-        return formatter.localizedString(for: date, relativeTo: Date())
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        let controller = UIActivityViewController(activityItems: activityItems, applicationActivities: nil)
+        return controller
     }
+    
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
 
 #Preview {

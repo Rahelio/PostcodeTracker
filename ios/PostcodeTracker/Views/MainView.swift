@@ -11,6 +11,11 @@ struct MainView: View {
                         Label("Track", systemImage: "location.fill")
                     }
                 
+                PostcodesView()
+                    .tabItem {
+                        Label("Postcodes", systemImage: "mappin.and.ellipse")
+                    }
+                
                 JourneysView()
                     .tabItem {
                         Label("History", systemImage: "clock")

@@ -32,7 +32,7 @@ final class JourneyLocal {
 enum SwiftDataStack {
     static let shared: ModelContainer = {
         do {
-            return try ModelContainer(for: JourneyLocal.self)
+            return try ModelContainer(for: JourneyLocal.self, SavedPostcode.self)
         } catch {
             fatalError("Failed to initialise SwiftData container: \(error)")
         }

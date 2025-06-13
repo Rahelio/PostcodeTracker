@@ -415,6 +415,77 @@ class JourneyManager: ObservableObject {
         return currentJourney != nil && isTrackingJourney
     }
     
+    // MARK: - Manual Journey Creation
+    
+    func createManualJourney(startPostcode: String, endPostcode: String) async throws -> JourneyResponse {
+        guard apiService.isAuthenticated else {
+            throw APIError.unauthorized
+        }
+        
+        isLoading = true
+        errorMessage = nil
+        
+        defer { isLoading = false }
+        
+        do {
+            let response = try await apiService.createManualJourney(
+                startPostcode: startPostcode,
+                endPostcode: endPostcode
+            )
+            
+            if response.success, let journey = response.journey {
+                // Add to journeys list
+                journeys.insert(journey, at: 0)
+                
+                // Persist to SwiftData
+                await persistJourneys([journey])
+                
+                print("Manual journey created successfully: \(journey.startPostcode) to \(journey.endPostcode ?? "unknown")")
+            }
+            
+            return response
+        } catch {
+            errorMessage = handleError(error)
+            throw error
+        }
+    }
+    
+    // MARK: - Journey Deletion
+    
+    func deleteJourneys(_ journeysToDelete: [Journey]) async {
+        guard apiService.isAuthenticated else {
+            errorMessage = "Please log in to delete journeys"
+            return
+        }
+        
+        isLoading = true
+        errorMessage = nil
+        
+        defer { isLoading = false }
+        
+        // For now, we'll just remove from local storage
+        // In the future, you could add server-side deletion API
+        
+        do {
+            // Remove from local journeys array
+            let idsToDelete = Set(journeysToDelete.map { $0.id })
+            journeys.removeAll { idsToDelete.contains($0.id) }
+            
+            // Remove from SwiftData
+            let localJourneys = try modelContext.fetch(FetchDescriptor<JourneyLocal>())
+            for localJourney in localJourneys {
+                if idsToDelete.contains(localJourney.id) {
+                    modelContext.delete(localJourney)
+                }
+            }
+            try modelContext.save()
+            
+            print("Successfully deleted \(journeysToDelete.count) journey(s)")
+        } catch {
+            errorMessage = "Failed to delete journeys: \(error.localizedDescription)"
+        }
+    }
+    
     // MARK: - SwiftData Persistence
     private func persistJourneys(_ journeys: [Journey]) async {
         for journey in journeys {
