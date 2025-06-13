@@ -63,13 +63,23 @@ struct PostcodesView: View {
             }
             .navigationTitle("Saved Postcodes")
             .toolbar {
-                ToolbarItemGroup(placement: .navigationBarTrailing) {
+                ToolbarItemGroup(placement: .navigationBarLeading) {
                     if !postcodeManager.savedPostcodes.isEmpty {
                         Button("Journey") {
                             showingCreateJourney = true
                         }
-                        .font(.caption)
-                        
+                    }
+                    
+                    if isSelectionMode && !selectedPostcodes.isEmpty {
+                        Button("Delete Selected") {
+                            showingBulkDeleteAlert = true
+                        }
+                        .foregroundColor(.red)
+                    }
+                }
+                
+                ToolbarItemGroup(placement: .navigationBarTrailing) {
+                    if !postcodeManager.savedPostcodes.isEmpty {
                         Button(isSelectionMode ? "Done" : "Select") {
                             isSelectionMode.toggle()
                             if !isSelectionMode {
@@ -80,15 +90,6 @@ struct PostcodesView: View {
                     
                     Button("Add") {
                         showingAddSheet = true
-                    }
-                }
-                
-                ToolbarItemGroup(placement: .navigationBarLeading) {
-                    if isSelectionMode && !selectedPostcodes.isEmpty {
-                        Button("Delete Selected") {
-                            showingBulkDeleteAlert = true
-                        }
-                        .foregroundColor(.red)
                     }
                 }
             }

@@ -14,6 +14,7 @@ class Journey(db.Model):
     end_time = db.Column(db.DateTime, nullable=True)
     distance_miles = db.Column(db.Float, nullable=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    label = db.Column(db.String(100), nullable=True)  # User-defined label for the journey
     
     # Store coordinates for mapping and distance calculations
     start_latitude = db.Column(db.Float, nullable=True)
@@ -35,6 +36,7 @@ class Journey(db.Model):
             'distance_miles': self.distance_miles,
             'is_active': self.end_time is None,
             'user_id': self.user_id,
+            'label': self.label,
             'start_latitude': self.start_latitude,
             'start_longitude': self.start_longitude,
             'end_latitude': self.end_latitude,

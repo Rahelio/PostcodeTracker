@@ -330,6 +330,19 @@ class APIServiceV2: ObservableObject {
         return try await performRequest(request, responseType: ActiveJourneyResponse.self)
     }
     
+    func updateJourneyLabel(journeyId: Int, label: String) async throws -> JourneyResponse {
+        var request = try createRequest(for: "journey/update-label", method: "POST")
+        
+        let body = [
+            "journey_id": journeyId,
+            "label": label
+        ] as [String : Any]
+        
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        
+        return try await performRequest(request, responseType: JourneyResponse.self)
+    }
+    
     func getJourneys() async throws -> JourneysResponse {
         let request = try createRequest(for: "journeys", method: "GET")
         return try await performRequest(request, responseType: JourneysResponse.self)

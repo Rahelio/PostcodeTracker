@@ -415,6 +415,42 @@ class JourneyManager: ObservableObject {
         return currentJourney != nil && isTrackingJourney
     }
     
+    // MARK: - Journey Label Management
+    
+    func updateJourneyLabel(journeyId: Int, label: String) async {
+        guard apiService.isAuthenticated else {
+            errorMessage = "Please log in to update journey label"
+            return
+        }
+        
+        isLoading = true
+        errorMessage = nil
+        
+        defer { isLoading = false }
+        
+        do {
+            let response = try await apiService.updateJourneyLabel(journeyId: journeyId, label: label)
+            
+            if response.success, let updatedJourney = response.journey {
+                // Update the current journey if it's the one being labeled
+                if currentJourney?.id == updatedJourney.id {
+                    currentJourney = updatedJourney
+                }
+                
+                // Update in journeys list
+                if let index = journeys.firstIndex(where: { $0.id == updatedJourney.id }) {
+                    journeys[index] = updatedJourney
+                }
+                
+                print("Journey label updated successfully: '\(label)'")
+            } else {
+                errorMessage = response.message ?? "Failed to update journey label"
+            }
+        } catch {
+            errorMessage = handleError(error)
+        }
+    }
+    
     // MARK: - Manual Journey Creation
     
     func createManualJourney(startPostcode: String, endPostcode: String) async throws -> JourneyResponse {
@@ -532,7 +568,8 @@ class JourneyManager: ObservableObject {
                        startPostcode: entity.startPostcode,
                        endPostcode: entity.endPostcode,
                        distanceMiles: entity.distanceMiles,
-                       isActive: entity.isActive)
+                       isActive: entity.isActive,
+                       label: nil) // Labels not stored locally for cached journeys
             }
             self.journeys = mapped
         } catch {

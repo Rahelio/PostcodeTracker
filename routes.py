@@ -510,6 +510,43 @@ def create_manual_journey(current_user):
         db.session.rollback()
         return jsonify({'success': False, 'message': 'Failed to create manual journey'}), 500
 
+@app.route(f'{API_PREFIX}/journey/update-label', methods=['POST'])
+@require_auth
+def update_journey_label(current_user):
+    """Update the label of an active journey. Requires authentication."""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'message': 'No data provided'}), 400
+        
+        journey_id = data.get('journey_id')
+        label = data.get('label', '').strip()
+        
+        if not journey_id:
+            return jsonify({'success': False, 'message': 'Journey ID is required'}), 400
+        
+        # Find the journey for this user
+        journey = Journey.query.filter_by(id=journey_id, user_id=current_user.id).first()
+        if not journey:
+            return jsonify({'success': False, 'message': 'Journey not found'}), 404
+        
+        # Update the label
+        journey.label = label if label else None
+        db.session.commit()
+        
+        logger.info(f"User {current_user.username} updated label for journey {journey.id} to '{label}'")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Journey label updated successfully',
+            'journey': journey.to_dict()
+        })
+        
+    except Exception as e:
+        logger.error(f"Error updating journey label: {e}")
+        db.session.rollback()
+        return jsonify({'success': False, 'message': 'Failed to update journey label'}), 500
+
 @app.route(f'{API_PREFIX}/journey/active', methods=['GET'])
 @require_auth
 def get_active_journey(current_user):

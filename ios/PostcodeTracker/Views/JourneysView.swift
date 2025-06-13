@@ -201,6 +201,19 @@ struct JourneyRow: View {
             }
             
             VStack(alignment: .leading, spacing: 8) {
+                // Journey label (if exists)
+                if let label = journey.label, !label.isEmpty {
+                    HStack {
+                        Image(systemName: "tag.fill")
+                            .font(.caption2)
+                            .foregroundColor(.blue)
+                        Text(label)
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                            .foregroundColor(.blue)
+                    }
+                }
+                
                 // Postcodes
                 HStack {
                     Text(journey.startPostcode)
