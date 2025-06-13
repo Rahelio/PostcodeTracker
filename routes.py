@@ -242,9 +242,36 @@ def start_journey(current_user):
                 'message': 'You already have an active journey'
             }), 400
         
-        # Get postcode from coordinates
-        start_postcode = PostcodeService.get_postcode_from_coordinates(lat, lon)
-        if not start_postcode:
+        # Get postcode from coordinates with timeout protection
+        try:
+            import signal
+            
+            def timeout_handler(signum, frame):
+                raise TimeoutError("Postcode lookup timed out")
+            
+            # Set up timeout (20 seconds max for postcode lookup)
+            signal.signal(signal.SIGALRM, timeout_handler)
+            signal.alarm(20)
+            
+            start_postcode = PostcodeService.get_postcode_from_coordinates(lat, lon)
+            
+            # Cancel timeout
+            signal.alarm(0)
+            
+            if not start_postcode:
+                return jsonify({
+                    'success': False, 
+                    'message': 'Could not determine UK postcode for your location'
+                }), 400
+                
+        except TimeoutError:
+            logger.error(f"Postcode lookup timed out for coordinates ({lat}, {lon})")
+            return jsonify({
+                'success': False, 
+                'message': 'Postcode lookup timed out. Please try again or move to a different location.'
+            }), 408
+        except Exception as e:
+            logger.error(f"Error during postcode lookup: {e}")
             return jsonify({
                 'success': False, 
                 'message': 'Could not determine UK postcode for your location'
@@ -302,9 +329,36 @@ def end_journey(current_user):
         if not journey:
             return jsonify({'success': False, 'message': 'No active journey found'}), 404
         
-        # Get end postcode from coordinates
-        end_postcode = PostcodeService.get_postcode_from_coordinates(lat, lon)
-        if not end_postcode:
+        # Get end postcode from coordinates with timeout protection
+        try:
+            import signal
+            
+            def timeout_handler(signum, frame):
+                raise TimeoutError("Postcode lookup timed out")
+            
+            # Set up timeout (20 seconds max for postcode lookup)
+            signal.signal(signal.SIGALRM, timeout_handler)
+            signal.alarm(20)
+            
+            end_postcode = PostcodeService.get_postcode_from_coordinates(lat, lon)
+            
+            # Cancel timeout
+            signal.alarm(0)
+            
+            if not end_postcode:
+                return jsonify({
+                    'success': False, 
+                    'message': 'Could not determine UK postcode for your location'
+                }), 400
+                
+        except TimeoutError:
+            logger.error(f"Postcode lookup timed out for coordinates ({lat}, {lon})")
+            return jsonify({
+                'success': False, 
+                'message': 'Postcode lookup timed out. Please try again or move to a different location.'
+            }), 408
+        except Exception as e:
+            logger.error(f"Error during postcode lookup: {e}")
             return jsonify({
                 'success': False, 
                 'message': 'Could not determine UK postcode for your location'

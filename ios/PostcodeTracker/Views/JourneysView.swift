@@ -2,7 +2,7 @@ import SwiftUI
 import CoreLocation
 
 struct JourneysView: View {
-    @StateObject private var journeyManager = JourneyManager()
+    @StateObject private var journeyManager = JourneyManager.shared
     @State private var showingAlert = false
     @State private var alertMessage = ""
     
@@ -98,12 +98,16 @@ struct JourneyRowView: View {
                         .font(.headline)
                         .fontWeight(.semibold)
                     
-                    if let endTime = journey.end_time {
-                        Text(formatJourneyTime(start: journey.start_time, end: endTime))
+                    if let startTime = journey.formattedStartTime, let endTime = journey.formattedEndTime {
+                        Text(formatJourneyTime(start: startTime, end: endTime))
                             .font(.caption)
                             .foregroundColor(.secondary)
+                    } else if let startTime = journey.formattedStartTime {
+                        Text("Started \(formatRelativeTime(startTime))")
+                            .font(.caption)
+                            .foregroundColor(.blue)
                     } else {
-                        Text("Started \(formatRelativeTime(journey.start_time))")
+                        Text("Started \(journey.start_time)")
                             .font(.caption)
                             .foregroundColor(.blue)
                     }

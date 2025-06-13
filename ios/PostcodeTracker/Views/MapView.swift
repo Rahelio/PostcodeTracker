@@ -131,12 +131,10 @@ struct MapView: View {
         isLoading = true
         errorMessage = nil
         
-        do {
-            postcodes = try await APIServiceV2.shared.getPostcodes()
-            await createAnnotations()
-        } catch {
-            errorMessage = error.localizedDescription
-        }
+        // Postcode management was removed from the API
+        // For now, we'll just show an empty map
+        postcodes = []
+        await createAnnotations()
         
         isLoading = false
     }

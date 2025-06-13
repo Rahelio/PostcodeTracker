@@ -87,7 +87,16 @@ class APIServiceV2: ObservableObject {
     
     // Base URL includes LocationApp prefix to align with Nginx alias
     private let baseURL = "https://rickys.ddns.net/LocationApp/api"
-    private let session = URLSession.shared
+    
+    // Custom URLSession with appropriate timeouts
+    private let session: URLSession = {
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 30.0  // 30 seconds for request timeout
+        config.timeoutIntervalForResource = 60.0 // 60 seconds for resource timeout
+        config.waitsForConnectivity = true       // Wait for connectivity if needed
+        return URLSession(configuration: config)
+    }()
+    
     private var authToken: String?
     
     private init() {
@@ -157,10 +166,17 @@ class APIServiceV2: ObservableObject {
                 print("Response status: \(httpResponse.statusCode)")
             }
             
-            // Check for HTTP errors
+            // Check for HTTP errors - only clear auth token on genuine 401 responses
             if httpResponse.statusCode == 401 {
+                print("⚠️ Received 401 Unauthorized - clearing auth token")
                 clearAuthToken()
                 throw APIError.unauthorized
+            }
+            
+            // Handle server timeout (408 Request Timeout)
+            if httpResponse.statusCode == 408 {
+                print("⏰ Server request timeout (408)")
+                throw APIError.networkError(NSError(domain: "ServerTimeout", code: 408, userInfo: [NSLocalizedDescriptionKey: "Server request timed out. Please try again."]))
             }
             
             // Content-Type check: ensure JSON
@@ -195,7 +211,18 @@ class APIServiceV2: ObservableObject {
         } catch let error as APIError {
             throw error
         } catch {
-            throw APIError.networkError(error)
+            // Handle network errors (including timeouts) without clearing auth token
+            let nsError = error as NSError
+            if nsError.code == NSURLErrorTimedOut {
+                print("⏰ Request timed out - keeping auth token")
+                throw APIError.networkError(NSError(domain: "NetworkTimeout", code: nsError.code, userInfo: [NSLocalizedDescriptionKey: "Request timed out. Please check your internet connection and try again."]))
+            } else if nsError.code == NSURLErrorNotConnectedToInternet {
+                print("📡 No internet connection")
+                throw APIError.networkError(NSError(domain: "NoInternet", code: nsError.code, userInfo: [NSLocalizedDescriptionKey: "No internet connection. Please check your network and try again."]))
+            } else {
+                print("🔌 Network error: \(error.localizedDescription)")
+                throw APIError.networkError(error)
+            }
         }
     }
     

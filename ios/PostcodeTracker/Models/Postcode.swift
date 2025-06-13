@@ -51,6 +51,7 @@ struct Journey: Codable, Identifiable {
     let is_manual: Bool
     let start_location: Postcode?
     let end_location: Postcode?
+    let userId: Int?
     
     enum CodingKeys: String, CodingKey {
         case id
@@ -63,6 +64,57 @@ struct Journey: Codable, Identifiable {
         case is_manual
         case start_location
         case end_location
+        case userId = "user_id"
+    }
+    
+    // MARK: - Computed Properties for Compatibility
+    var startPostcode: String {
+        return start_postcode
+    }
+    
+    var endPostcode: String? {
+        return end_postcode
+    }
+    
+    var distanceMiles: Double? {
+        return distance_miles
+    }
+    
+    var isActive: Bool {
+        return is_active
+    }
+    
+    var formattedStartTime: Date? {
+        ISO8601DateFormatter().date(from: start_time)
+    }
+    
+    var formattedEndTime: Date? {
+        guard let endTime = end_time else { return nil }
+        return ISO8601DateFormatter().date(from: endTime)
+    }
+    
+    var formattedDistance: String {
+        guard let distance = distance_miles else {
+            return "Distance not calculated"
+        }
+        return String(format: "%.2f miles", distance)
+    }
+    
+    var duration: String {
+        guard let start = formattedStartTime,
+              let end = formattedEndTime else {
+            return "Duration not available"
+        }
+        
+        let interval = end.timeIntervalSince(start)
+        let hours = Int(interval) / 3600
+        let minutes = Int(interval) % 3600 / 60
+        
+        if hours > 0 {
+            return "\(hours)h \(minutes)m"
+        } else {
+            return "\(minutes)m"
+        }
     }
 }
 

@@ -21,9 +21,9 @@ class PostcodeService:
     
     BASE_URL = "https://api.postcodes.io"
     BACKUP_URL = "https://postcodes.io/api"  # Fallback URL
-    MAX_RETRIES = 3
-    RETRY_DELAY = 1  # seconds
-    REQUEST_TIMEOUT = 10  # seconds
+    MAX_RETRIES = 2  # Reduced from 3 to 2
+    RETRY_DELAY = 0.5  # Reduced from 1 to 0.5 seconds
+    REQUEST_TIMEOUT = 8  # Reduced from 10 to 8 seconds
     
     @classmethod
     def _make_request(cls, url: str, max_retries: int = None) -> Optional[Dict[str, Any]]:
@@ -60,7 +60,7 @@ class PostcodeService:
                 logger.error(f"Unexpected error for {url}: {e} (attempt {attempt + 1})")
             
             if attempt < max_retries:
-                time.sleep(cls.RETRY_DELAY * (attempt + 1))  # Exponential backoff
+                time.sleep(cls.RETRY_DELAY)  # Fixed delay instead of exponential for speed
                 
         logger.error(f"All {max_retries + 1} attempts failed for {url}")
         return None
@@ -83,9 +83,10 @@ class PostcodeService:
                 logger.error(f"Invalid coordinates: lat={latitude}, lon={longitude}")
                 return None
             
-            # Try primary URL
+            # Try primary URL with reduced retries for speed
+            logger.info(f"Looking up postcode for coordinates ({latitude}, {longitude})")
             url = f"{cls.BASE_URL}/postcodes?lon={longitude}&lat={latitude}"
-            data = cls._make_request(url)
+            data = cls._make_request(url, max_retries=1)  # Only 1 retry for speed
             
             if data and data.get('result') and len(data['result']) > 0:
                 postcode = data['result'][0].get('postcode')
@@ -93,9 +94,10 @@ class PostcodeService:
                     logger.info(f"Found postcode {postcode} for coordinates ({latitude}, {longitude})")
                     return postcode.strip().replace(' ', '')  # Normalize format
             
-            # Try backup URL if primary fails
+            # Try backup URL if primary fails - also with reduced retries
+            logger.info(f"Primary API failed, trying backup for coordinates ({latitude}, {longitude})")
             backup_url = f"{cls.BACKUP_URL}/postcodes?lon={longitude}&lat={latitude}"
-            backup_data = cls._make_request(backup_url)
+            backup_data = cls._make_request(backup_url, max_retries=1)  # Only 1 retry for speed
             
             if backup_data and backup_data.get('result') and len(backup_data['result']) > 0:
                 postcode = backup_data['result'][0].get('postcode')

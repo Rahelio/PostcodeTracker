@@ -101,67 +101,24 @@ struct PostcodeListView: View {
         isLoading = true
         errorMessage = nil
         
-        do {
-            print("Loading postcodes...")
-            postcodes = try await APIServiceV2.shared.getPostcodes()
-            print("Successfully loaded \(postcodes.count) postcodes")
-        } catch let error as APIError {
-            print("API Error occurred: \(error.debugDescription)")
-            print("Error description: \(error.localizedDescription)")
-            errorMessage = error.localizedDescription
-        } catch {
-            print("Unexpected error occurred: \(error)")
-            errorMessage = "An unexpected error occurred: \(error.localizedDescription)"
-        }
+        // Postcode management has been removed from the API
+        // The app now focuses on journey tracking instead
+        postcodes = []
         
         isLoading = false
     }
     
     private func addPostcode() async {
-        guard !newPostcode.isEmpty else { return }
-        
-        isLoading = true
-        errorMessage = nil
-        
-        do {
-            print("Adding new postcode: \(newPostcode)")
-            let postcode = try await APIServiceV2.shared.addPostcode(newPostcode, name: newName.isEmpty ? newPostcode : newName)
-            print("Successfully added postcode: \(postcode.postcode)")
-            postcodes.append(postcode)
-            newPostcode = ""
-            newName = ""
-            showingAddPostcode = false
-        } catch let error as APIError {
-            print("API Error occurred: \(error.debugDescription)")
-            print("Error description: \(error.localizedDescription)")
-            errorMessage = error.localizedDescription
-        } catch {
-            print("Unexpected error occurred: \(error)")
-            errorMessage = "An unexpected error occurred: \(error.localizedDescription)"
-        }
-        
-        isLoading = false
+        // Postcode management has been removed from the API
+        // Show message to user that this feature is no longer available
+        errorMessage = "Postcode management is no longer available. The app now focuses on journey tracking."
+        showingAddPostcode = false
     }
     
     private func deletePostcode(at offsets: IndexSet) {
-        Task {
-            for index in offsets {
-                let postcode = postcodes[index]
-                do {
-                    print("Deleting postcode: \(postcode.postcode)")
-                    try await APIServiceV2.shared.deletePostcode(id: postcode.id)
-                    print("Successfully deleted postcode: \(postcode.postcode)")
-                    postcodes.remove(at: index)
-                } catch let error as APIError {
-                    print("API Error occurred: \(error.debugDescription)")
-                    print("Error description: \(error.localizedDescription)")
-                    errorMessage = error.localizedDescription
-                } catch {
-                    print("Unexpected error occurred: \(error)")
-                    errorMessage = "An unexpected error occurred: \(error.localizedDescription)"
-                }
-            }
-        }
+        // Postcode management has been removed from the API
+        // This function is kept for compatibility but does nothing
+        errorMessage = "Postcode management is no longer available. The app now focuses on journey tracking."
     }
 }
 
@@ -182,12 +139,14 @@ struct PostcodeListContentView: View {
                     Image(systemName: "mappin.and.ellipse")
                         .font(.system(size: 60))
                         .foregroundColor(.secondary)
-                    Text("No Postcodes Added")
+                    Text("Postcode Management Removed")
                         .playfairDisplay(.title2)
                         .foregroundColor(.primary)
-                    Text("Tap + to add your first postcode")
+                    Text("The app now focuses on journey tracking. Use the Journey Tracker tab instead.")
                         .playfairDisplay(.subheadline)
                         .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {

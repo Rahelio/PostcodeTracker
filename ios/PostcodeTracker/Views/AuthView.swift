@@ -76,22 +76,36 @@ struct AuthView: View {
             do {
                 if isLogin {
                     print("Attempting login...")
-                    let token = try await APIServiceV2.shared.login(username: username, password: password)
-                    print("Login successful, token received")
-                    authManager.login(token: token)
-                    print("AuthManager updated, isAuthenticated: \(authManager.isAuthenticated)")
+                    let response = try await APIServiceV2.shared.login(username: username, password: password)
+                    print("Login successful, response received")
+                    
+                    if let user = response.user {
+                        authManager.login(user: user)
+                        print("AuthManager updated, isAuthenticated: \(authManager.isAuthenticated)")
+                    } else {
+                        errorMessage = "Login failed: User data not received"
+                    }
                 } else {
                     print("Attempting registration...")
                     // First register
-                    _ = try await APIServiceV2.shared.register(username: username, password: password)
+                    let registerResponse = try await APIServiceV2.shared.register(username: username, password: password)
                     print("Registration successful")
                     
-                    // Then login
-                    print("Attempting login after registration...")
-                    let token = try await APIServiceV2.shared.login(username: username, password: password)
-                    print("Login successful after registration, token received")
-                    authManager.login(token: token)
-                    print("AuthManager updated after registration, isAuthenticated: \(authManager.isAuthenticated)")
+                    if let user = registerResponse.user {
+                        authManager.login(user: user)
+                        print("AuthManager updated after registration, isAuthenticated: \(authManager.isAuthenticated)")
+                    } else {
+                        // Registration succeeded but no user data, try login
+                        print("Registration succeeded, attempting login...")
+                        let loginResponse = try await APIServiceV2.shared.login(username: username, password: password)
+                        
+                        if let user = loginResponse.user {
+                            authManager.login(user: user)
+                            print("AuthManager updated after login, isAuthenticated: \(authManager.isAuthenticated)")
+                        } else {
+                            errorMessage = "Registration succeeded but login failed"
+                        }
+                    }
                 }
             } catch let error as APIError {
                 print("API Error occurred: \(error.localizedDescription)")
