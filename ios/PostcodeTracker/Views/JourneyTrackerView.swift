@@ -179,9 +179,18 @@ struct JourneyTrackerView: View {
             }
             .onAppear {
                 locationManager.requestLocationPermission()
-                Task {
-                    await journeyManager.checkActiveJourney()
+                
+                // Pre-warm location services for faster location fixes
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                    locationManager.startLocationUpdates()
                 }
+                
+                Task {
+                    await journeyManager.refreshAuthenticationState()
+                }
+            }
+            .onDisappear {
+                locationManager.stopLocationUpdates()
             }
         }
     }

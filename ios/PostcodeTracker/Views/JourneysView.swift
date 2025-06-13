@@ -94,7 +94,7 @@ struct JourneyRowView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("\(journey.start_postcode) → \(journey.end_postcode ?? "In Progress")")
+                    Text("\(journey.startPostcode) → \(journey.endPostcode ?? "In Progress")")
                         .font(.headline)
                         .fontWeight(.semibold)
                     
@@ -107,7 +107,7 @@ struct JourneyRowView: View {
                             .font(.caption)
                             .foregroundColor(.blue)
                     } else {
-                        Text("Started \(journey.start_time)")
+                        Text("Started \(journey.startTime)")
                             .font(.caption)
                             .foregroundColor(.blue)
                     }
@@ -116,13 +116,13 @@ struct JourneyRowView: View {
                 Spacer()
                 
                 VStack(alignment: .trailing, spacing: 4) {
-                    if let distance = journey.distance_miles {
+                    if let distance = journey.distanceMiles {
                         Text("\(String(format: "%.1f", distance)) mi")
                             .font(.subheadline)
                             .fontWeight(.medium)
                     }
                     
-                    if journey.end_time == nil {
+                    if journey.endTime == nil {
                         Text("Active")
                             .font(.caption)
                             .padding(.horizontal, 8)

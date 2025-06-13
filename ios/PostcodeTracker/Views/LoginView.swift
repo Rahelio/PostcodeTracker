@@ -122,6 +122,9 @@ struct LoginView: View {
                 await MainActor.run {
                     authManager.login(user: user)
                 }
+                
+                // Refresh journey state after successful login
+                await JourneyManager.shared.refreshAuthenticationState()
             } else {
                 print("Login failed: \(response.message)")
                 alertMessage = response.message
@@ -157,6 +160,9 @@ struct LoginView: View {
                 await MainActor.run {
                     authManager.login(user: user)
                 }
+                
+                // Refresh journey state after successful registration
+                await JourneyManager.shared.refreshAuthenticationState()
             } else {
                 print("Registration failed: \(response.message)")
                 alertMessage = response.message

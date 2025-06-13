@@ -30,12 +30,6 @@ struct JourneyResponse: Codable {
     let journey: Journey?
 }
 
-struct ActiveJourneyResponse: Codable {
-    let success: Bool
-    let active: Bool
-    let journey: Journey?
-}
-
 struct JourneysResponse: Codable {
     let success: Bool
     let journeys: [Journey]
@@ -104,6 +98,14 @@ class APIServiceV2: ObservableObject {
         self.authToken = UserDefaults.standard.string(forKey: "auth_token")
         print("🔥🔥🔥 NEW APIServiceV2 INITIALIZED - baseURL: \(baseURL)")
         print("🔥🔥🔥 Loaded auth token: \(authToken != nil ? "Present" : "None")")
+        if let token = authToken {
+            print("🔥🔥🔥 Token preview: \(token.prefix(20))...")
+        }
+        
+        // Ensure we have the latest token from UserDefaults
+        Task {
+            await refreshTokenFromStorageIfNeeded()
+        }
     }
     
     // MARK: - Auth Token Management
@@ -117,8 +119,31 @@ class APIServiceV2: ObservableObject {
         UserDefaults.standard.removeObject(forKey: "auth_token")
     }
     
+    func refreshTokenFromStorage() {
+        let storedToken = UserDefaults.standard.string(forKey: "auth_token")
+        if storedToken != authToken {
+            print("🔄 Refreshing token from UserDefaults")
+            print("- Current token: \(authToken != nil ? "Present" : "None")")
+            print("- Stored token: \(storedToken != nil ? "Present" : "None")")
+            self.authToken = storedToken
+        }
+    }
+    
+    private func refreshTokenFromStorageIfNeeded() async {
+        // Small delay to ensure UserDefaults are fully synchronized
+        try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+        refreshTokenFromStorage()
+    }
+    
     var isAuthenticated: Bool {
-        return authToken != nil
+        let hasToken = authToken != nil
+        print("🔍 APIService.isAuthenticated check: \(hasToken)")
+        if let token = authToken {
+            print("- Token exists, length: \(token.count)")
+        } else {
+            print("- No token found")
+        }
+        return hasToken
     }
     
     // MARK: - HTTP Methods
@@ -140,6 +165,9 @@ class APIServiceV2: ObservableObject {
         // Add auth token if available
         if let token = authToken {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            print("🔑 Added auth header with token: \(token.prefix(20))...")
+        } else {
+            print("⚠️ No auth token available for request")
         }
         
         print("Created request with URL: \(request.url?.absoluteString ?? "nil")")
@@ -148,68 +176,27 @@ class APIServiceV2: ObservableObject {
     }
     
     private func performRequest<T: Codable>(_ request: URLRequest, responseType: T.Type) async throws -> T {
+        print("🚀 Starting request to: \(request.url?.absoluteString ?? "unknown")")
+        print("🔑 Token state at request start: \(authToken != nil ? "Present (\(authToken!.count) chars)" : "None")")
+        
+        // Debug the exact Authorization header being sent
+        if let authHeader = request.value(forHTTPHeaderField: "Authorization") {
+            print("🔑 Authorization header: \(authHeader.prefix(50))...")
+        } else {
+            print("⚠️ No Authorization header in request")
+        }
+        
         do {
             let (data, response) = try await session.data(for: request)
+            
+            print("🔑 Token state after request: \(authToken != nil ? "Present (\(authToken!.count) chars)" : "None")")
             
             guard let httpResponse = response as? HTTPURLResponse else {
                 throw APIError.networkError(NSError(domain: "Invalid response", code: -1))
             }
             
-            // Log response for debugging
-            if let responseString = String(data: data, encoding: .utf8) {
-                print("API Response (\(httpResponse.statusCode)): \(responseString)")
-            }
-            
-            // Additional debugging for auth endpoints
-            if request.url?.path.contains("auth") == true {
-                print("Auth endpoint called: \(request.url?.absoluteString ?? "unknown")")
-                print("Response status: \(httpResponse.statusCode)")
-            }
-            
-            // Check for HTTP errors - only clear auth token on genuine 401 responses
-            if httpResponse.statusCode == 401 {
-                print("⚠️ Received 401 Unauthorized - clearing auth token")
-                clearAuthToken()
-                throw APIError.unauthorized
-            }
-            
-            // Handle server timeout (408 Request Timeout)
-            if httpResponse.statusCode == 408 {
-                print("⏰ Server request timeout (408)")
-                throw APIError.networkError(NSError(domain: "ServerTimeout", code: 408, userInfo: [NSLocalizedDescriptionKey: "Server request timed out. Please try again."]))
-            }
-            
-            // Content-Type check: ensure JSON
-            if let contentType = httpResponse.value(forHTTPHeaderField: "Content-Type"), !contentType.contains("application/json") {
-                let snippet = String(data: data.prefix(200), encoding: .utf8) ?? "<non-utf8>"
-                throw APIError.decodingError(NSError(domain: "APIService", code: 0, userInfo: [NSLocalizedDescriptionKey: "Expected JSON but got \(contentType). Snippet: \(snippet)"]))
-            }
-            
-            guard httpResponse.statusCode >= 200 && httpResponse.statusCode < 300 else {
-                // Try to decode error message
-                if let errorResponse = try? JSONDecoder().decode(APIResponse<String>.self, from: data) {
-                    throw APIError.serverError(errorResponse.message ?? "Unknown server error")
-                }
-                throw APIError.serverError("HTTP \(httpResponse.statusCode)")
-            }
-            
-            // Decode response
-            do {
-                let decoder = JSONDecoder()
-                print("About to decode response data as type: \(responseType)")
-                if let responseString = String(data: data, encoding: .utf8) {
-                    print("Raw JSON being decoded: \(responseString)")
-                }
-                let result = try decoder.decode(responseType, from: data)
-                print("Successfully decoded response as: \(type(of: result))")
-                return result
-            } catch {
-                print("JSON Decoding failed for type \(responseType): \(error)")
-                throw APIError.decodingError(error)
-            }
-            
-        } catch let error as APIError {
-            throw error
+            // Use the new handleResponse method
+            return try await handleResponse(httpResponse, data: data, request: request)
         } catch {
             // Handle network errors (including timeouts) without clearing auth token
             let nsError = error as NSError
@@ -370,6 +357,43 @@ class APIServiceV2: ObservableObject {
             return data
         } catch {
             throw APIError.networkError(error)
+        }
+    }
+    
+    private func handleResponse<T: Decodable>(_ response: HTTPURLResponse, data: Data, request: URLRequest) async throws -> T {
+        print("API Response (\(response.statusCode)): \(String(data: data, encoding: .utf8) ?? "No data")")
+        
+        // Check for 401 errors
+        if response.statusCode == 401 {
+            print("⚠️ Received 401 Unauthorized")
+            print("- Request URL: \(request.url?.absoluteString ?? "unknown")")
+            print("- Request had auth header: \(request.allHTTPHeaderFields?["Authorization"] != nil)")
+            
+            // Clear local token and throw unauthorized error
+            print("🔄 401 Error: Clearing auth token...")
+            clearAuthToken()
+            throw APIError.unauthorized
+        }
+        
+        // Handle other error status codes
+        guard response.statusCode >= 200 && response.statusCode < 300 else {
+            print("❌ API Error: \(response.statusCode)")
+            if let errorJson = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                print("Error details: \(errorJson)")
+            }
+            throw APIError.serverError("HTTP \(response.statusCode)")
+        }
+        
+        // Decode the response
+        do {
+            print("About to decode response data as type: \(T.self)")
+            print("Raw JSON being decoded: \(String(data: data, encoding: .utf8) ?? "No data")")
+            let decodedResponse = try JSONDecoder().decode(T.self, from: data)
+            print("Successfully decoded response as: \(T.self)")
+            return decodedResponse
+        } catch {
+            print("JSON Decoding failed for type \(T.self): \(error)")
+            throw APIError.decodingError(error)
         }
     }
 } 

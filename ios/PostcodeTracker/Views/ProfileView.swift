@@ -158,13 +158,70 @@ struct ProfileView: View {
         isLoading = true
         
         do {
+            // Call server logout endpoint
             try await apiService.logout()
+            print("✅ Server logout successful")
         } catch {
-            print("Logout error: \(error)")
+            print("⚠️ Logout error (continuing with local logout): \(error)")
         }
         
+        // Clear auth manager state
         authManager.logout()
+        print("✅ Auth manager state cleared")
+        
+        // Clear journey manager state
+        await JourneyManager.shared.refreshAuthenticationState()
+        print("✅ Journey manager state cleared")
+        
+        // Clear postcode cache for privacy
+        PostcodeCache.shared.clearCache()
+        print("✅ Postcode cache cleared")
+        
+        // Clear legacy journey state (if any)
+        JourneyState.clear()
+        print("✅ Legacy journey state cleared")
+        
         isLoading = false
+        print("✅ Complete logout finished")
+        
+        // Verify all state is cleared
+        verifyLogoutComplete()
+    }
+    
+    private func verifyLogoutComplete() {
+        print("🔍 Verifying logout completeness...")
+        
+        // Check API service state
+        let hasToken = apiService.isAuthenticated
+        print("- API Service authenticated: \(hasToken)")
+        
+        // Check AuthManager state
+        let authState = authManager.isAuthenticated
+        print("- AuthManager authenticated: \(authState)")
+        
+        // Check UserDefaults keys
+        let hasAuthToken = UserDefaults.standard.string(forKey: "auth_token") != nil
+        let hasCurrentUser = UserDefaults.standard.data(forKey: "current_user") != nil
+        let hasIsAuthenticated = UserDefaults.standard.bool(forKey: "is_authenticated")
+        let hasCurrentJourney = UserDefaults.standard.data(forKey: "current_journey") != nil
+        let hasIsTracking = UserDefaults.standard.bool(forKey: "is_tracking_journey")
+        let hasActiveJourney = UserDefaults.standard.data(forKey: "activeJourney") != nil
+        
+        print("- UserDefaults auth_token: \(hasAuthToken)")
+        print("- UserDefaults current_user: \(hasCurrentUser)")
+        print("- UserDefaults is_authenticated: \(hasIsAuthenticated)")
+        print("- UserDefaults current_journey: \(hasCurrentJourney)")
+        print("- UserDefaults is_tracking_journey: \(hasIsTracking)")
+        print("- UserDefaults activeJourney (legacy): \(hasActiveJourney)")
+        
+        // Check if all state is properly cleared
+        let isCompletelyLoggedOut = !hasToken && !authState && !hasAuthToken && !hasCurrentUser && !hasIsAuthenticated && !hasCurrentJourney && !hasIsTracking && !hasActiveJourney
+        
+        if isCompletelyLoggedOut {
+            print("✅ Logout verification PASSED - All state cleared")
+        } else {
+            print("❌ Logout verification FAILED - Some state remains")
+        }
     }
     
     private var dateFormatter: DateFormatter {

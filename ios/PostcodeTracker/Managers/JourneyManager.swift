@@ -12,6 +12,9 @@ class JourneyManager: ObservableObject {
     @Published var isLoading = false
     @Published var errorMessage: String?
     
+    private var isCheckingActiveJourney = false
+    private var isRefreshingAuth = false
+    
     private let apiService = APIServiceV2.shared
     private let locationManager = LocationManager.shared
     private let modelContext: ModelContext = {
@@ -21,6 +24,8 @@ class JourneyManager: ObservableObject {
     
     private init() {
         Task {
+            // Small delay to ensure auth state is fully loaded before making API calls
+            try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
             await checkActiveJourney()
         }
     }
@@ -28,6 +33,26 @@ class JourneyManager: ObservableObject {
     // MARK: - Journey Management
     
     func startJourney() async {
+        // Debug authentication state
+        print("🔍 StartJourney - Authentication Debug:")
+        print("- APIService.isAuthenticated: \(apiService.isAuthenticated)")
+        print("- AuthManager.isAuthenticated: \(AuthManager.shared.isAuthenticated)")
+        
+        // Double-check authentication state consistency
+        if AuthManager.shared.isAuthenticated && !apiService.isAuthenticated {
+            print("⚠️ Authentication state mismatch detected - refreshing...")
+            await refreshAuthenticationState()
+        }
+        
+        // Check if we're authenticated before starting a journey
+        guard apiService.isAuthenticated else {
+            print("❌ StartJourney blocked: APIService not authenticated")
+            errorMessage = "Your session has expired. Please log in again."
+            return
+        }
+        
+        print("✅ StartJourney proceeding: Authentication check passed")
+        
         isLoading = true
         errorMessage = nil
         
@@ -122,6 +147,12 @@ class JourneyManager: ObservableObject {
             return
         }
         
+        // Check if we're authenticated before ending a journey
+        guard apiService.isAuthenticated else {
+            errorMessage = "Please log in to end your journey"
+            return
+        }
+        
         isLoading = true
         errorMessage = nil
         
@@ -163,26 +194,70 @@ class JourneyManager: ObservableObject {
     }
     
     func checkActiveJourney() async {
+        // Prevent concurrent calls
+        guard !isCheckingActiveJourney else {
+            print("📝 Already checking active journey, skipping...")
+            return
+        }
+        
+        isCheckingActiveJourney = true
+        defer { isCheckingActiveJourney = false }
+        
+        print("📝 Starting active journey check...")
+        
+        // First, let's test the token with a simpler endpoint
+        do {
+            print("🔍 Testing token with profile endpoint first...")
+            let _ = try await apiService.getProfile()
+            print("✅ Token validation successful with profile endpoint")
+        } catch {
+            print("❌ Token validation failed with profile endpoint: \(error)")
+            if case APIError.unauthorized = error {
+                print("📝 Token is invalid - clearing journey state")
+                currentJourney = nil
+                isTrackingJourney = false
+                clearJourneyState()
+                return
+            }
+        }
+        
         do {
             let response = try await apiService.getActiveJourney()
+            print("📝 Active journey check successful")
             
-            if response.success && response.active, let journey = response.journey {
+            if response.active, let journey = response.journey {
+                print("📝 Found active journey: \(journey.id)")
                 currentJourney = journey
                 isTrackingJourney = true
                 saveJourneyState()
             } else {
+                print("📝 No active journey found")
                 currentJourney = nil
                 isTrackingJourney = false
                 clearJourneyState()
             }
-            
         } catch {
-            // Don't show error for checking active journey on startup
-            print("Error checking active journey: \(error)")
+            print("📝 Active journey check failed: \(error)")
+            errorMessage = handleError(error)
+            
+            // Don't clear journey state on network errors, only on auth errors
+            if case APIError.unauthorized = error {
+                print("📝 Unauthorized error - clearing journey state")
+                currentJourney = nil
+                isTrackingJourney = false
+                clearJourneyState()
+            }
         }
     }
     
     func loadJourneys() async {
+        // Check if we're authenticated before making API calls
+        guard apiService.isAuthenticated else {
+            print("📝 Not authenticated, loading cached journeys only")
+            await loadCachedJourneys()
+            return
+        }
+        
         isLoading = true
         errorMessage = nil
         do {
@@ -246,16 +321,78 @@ class JourneyManager: ObservableObject {
                     return "Network error: \(networkError.localizedDescription)"
                 }
             case .unauthorized:
-                return "Session expired. Please log in again."
+                // Always show session expired message for 401 errors
+                // (APIService will have triggered logout automatically)
+                return "Your session has expired. Please log in again."
             case .serverError(let message):
                 return message.isEmpty ? "Server error occurred. Please try again." : message
             default:
                 return apiError.localizedDescription
             }
         } else if let locationError = error as? LocationManager.LocationError {
-            return locationError.localizedDescription
+            switch locationError {
+            case .timeout:
+                return "Location request timed out. Please ensure you're in an area with good GPS signal and try again."
+            case .denied:
+                return "Location access denied. Please enable location services in Settings > Privacy & Security > Location Services."
+            case .unavailable:
+                return "Location services are not available. Please check your device settings."
+            case .restricted:
+                return "Location services are restricted on this device."
+            default:
+                return locationError.localizedDescription
+            }
         } else {
             return error.localizedDescription
+        }
+    }
+    
+    // MARK: - Authentication Management
+    
+    func refreshAuthenticationState() async {
+        // Prevent concurrent calls
+        guard !isRefreshingAuth else {
+            print("📝 Already refreshing authentication state, skipping...")
+            return
+        }
+        
+        isRefreshingAuth = true
+        defer { isRefreshingAuth = false }
+        
+        print("📝 Refreshing authentication state...")
+        
+        // Refresh token from storage in case of sync issues
+        apiService.refreshTokenFromStorage()
+        
+        // Wait longer for authentication to fully complete and sync
+        try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
+        
+        if apiService.isAuthenticated {
+            print("📝 User is authenticated, checking for active journey...")
+            await checkActiveJourney()
+        } else {
+            print("📝 User is not authenticated, clearing all journey state...")
+            currentJourney = nil
+            isTrackingJourney = false
+            journeys = [] // Clear journeys list
+            clearJourneyState()
+            clearError()
+            // Clear cached journeys for security
+            await clearCachedJourneys()
+        }
+    }
+    
+    private func clearCachedJourneys() async {
+        do {
+            // Delete all cached journeys from SwiftData
+            let localJourneys = try modelContext.fetch(FetchDescriptor<JourneyLocal>())
+            for journey in localJourneys {
+                modelContext.delete(journey)
+            }
+            try modelContext.save()
+            print("📝 Cleared \(localJourneys.count) cached journeys from SwiftData")
+        } catch {
+            print("❌ Failed to clear cached journeys: \(error)")
         }
     }
     
@@ -305,16 +442,17 @@ class JourneyManager: ObservableObject {
             let localJourneys = try modelContext.fetch(FetchDescriptor<JourneyLocal>())
             let mapped = localJourneys.map { entity in
                 Journey(id: entity.id,
-                        start_postcode: entity.startPostcode,
-                        end_postcode: entity.endPostcode,
-                        distance_miles: entity.distanceMiles,
-                        start_time: ISO8601DateFormatter().string(from: entity.startTime),
-                        end_time: entity.endTime != nil ? ISO8601DateFormatter().string(from: entity.endTime!) : nil,
-                        is_active: entity.isActive,
-                        is_manual: false,
-                        start_location: nil,
-                        end_location: nil,
-                        userId: nil)
+                       userId: 0, // Default value since we don't store this locally
+                       startTime: ISO8601DateFormatter().string(from: entity.startTime),
+                       endTime: entity.endTime != nil ? ISO8601DateFormatter().string(from: entity.endTime!) : nil,
+                       startLatitude: 0, // Default value since we don't store this locally
+                       startLongitude: 0, // Default value since we don't store this locally
+                       endLatitude: nil,
+                       endLongitude: nil,
+                       startPostcode: entity.startPostcode,
+                       endPostcode: entity.endPostcode,
+                       distanceMiles: entity.distanceMiles,
+                       isActive: entity.isActive)
             }
             self.journeys = mapped
         } catch {
