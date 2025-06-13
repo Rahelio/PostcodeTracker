@@ -640,27 +640,52 @@ def export_journeys_csv(current_user):
     try:
         import csv
         from io import StringIO, BytesIO
-        # Fetch journeys for user
-        journeys = Journey.query.filter_by(user_id=current_user.id).filter(Journey.end_time.isnot(None)).all()
+        
+        # Fetch journeys for user (include both completed and active journeys)
+        journeys = Journey.query.filter_by(user_id=current_user.id).order_by(Journey.start_time.desc()).all()
+        
         # Prepare CSV in memory
         csv_buffer = StringIO()
         writer = csv.writer(csv_buffer)
-        # Header
+        
+        # Header - user's requested format
         writer.writerow([
-            'ID', 'Start Postcode', 'End Postcode', 'Start Time', 'End Time', 'Distance (miles)'
+            'Label', 'Date', 'Start Time', 'Start Postcode', 'End Time', 'End Postcode', 'Duration', 'Distance (miles)'
         ])
-        # Rows
+        
+        # Data rows
         for j in journeys:
+            # Extract date and time components
+            start_date = j.start_time.strftime('%Y-%m-%d') if j.start_time else ''
+            start_time = j.start_time.strftime('%H:%M:%S') if j.start_time else ''
+            end_time = j.end_time.strftime('%H:%M:%S') if j.end_time else ''
+            
+            # Calculate duration
+            duration = ''
+            if j.start_time and j.end_time:
+                time_diff = j.end_time - j.start_time
+                total_seconds = int(time_diff.total_seconds())
+                hours = total_seconds // 3600
+                minutes = (total_seconds % 3600) // 60
+                if hours > 0:
+                    duration = f"{hours}h {minutes}m"
+                else:
+                    duration = f"{minutes}m"
+            
             writer.writerow([
-                j.id,
-                j.start_postcode,
-                j.end_postcode or '',
-                j.start_time.isoformat() if j.start_time else '',
-                j.end_time.isoformat() if j.end_time else '',
-                f"{j.distance_miles:.2f}" if j.distance_miles else ''
+                j.label or '',  # Label (user created)
+                start_date,     # Date
+                start_time,     # Start time
+                j.start_postcode,  # Start postcode
+                end_time,       # End time
+                j.end_postcode or '',  # End postcode
+                duration,       # Duration
+                f"{j.distance_miles:.2f}" if j.distance_miles else ''  # Distance
             ])
+        
         # Convert to bytes
         csv_bytes = BytesIO(csv_buffer.getvalue().encode('utf-8'))
+        
         # Build response
         csv_bytes.seek(0)
         return send_file(

@@ -22,41 +22,41 @@ class CSVExporter {
     private static func generateCSVContent(_ journeys: [Journey]) -> String {
         var csvLines: [String] = []
         
-        // Header
+        // Header - matching user's requested format
         let headers = [
-            "Journey ID",
-            "Start Postcode",
-            "End Postcode", 
+            "Label",
+            "Date",
             "Start Time",
-            "End Time",
-            "Distance (Miles)",
+            "Start Postcode",
+            "End Time", 
+            "End Postcode",
             "Duration",
-            "Status",
-            "Start Latitude",
-            "Start Longitude",
-            "End Latitude",
-            "End Longitude"
+            "Distance (miles)"
         ]
         csvLines.append(headers.joined(separator: ","))
         
         // Data rows
         for journey in journeys {
-            let journeyId = "\(journey.id)"
+            // Extract date and time components
+            let startDate = journey.formattedStartTime?.formatted(date: .numeric, time: .omitted) ?? ""
+            let startTime = journey.formattedStartTime?.formatted(date: .omitted, time: .standard) ?? ""
+            let endTime = journey.formattedEndTime?.formatted(date: .omitted, time: .standard) ?? ""
+            
+            let label = escapeCSVField(journey.label ?? "")
             let startPostcode = escapeCSVField(journey.startPostcode)
             let endPostcode = escapeCSVField(journey.endPostcode ?? "")
-            let startTime = escapeCSVField(journey.startTime)
-            let endTime = escapeCSVField(journey.endTime ?? "")
             let distance = journey.distanceMiles.map { String(format: "%.2f", $0) } ?? ""
             let duration = calculateDuration(start: journey.formattedStartTime, end: journey.formattedEndTime)
-            let status = journey.isActive ? "Active" : "Completed"
-            let startLat = "\(journey.startLatitude)"
-            let startLon = "\(journey.startLongitude)"
-            let endLat = journey.endLatitude.map { "\($0)" } ?? ""
-            let endLon = journey.endLongitude.map { "\($0)" } ?? ""
             
             let row = [
-                journeyId, startPostcode, endPostcode, startTime, endTime,
-                distance, duration, status, startLat, startLon, endLat, endLon
+                label,          // Label (user created)
+                startDate,      // Date
+                startTime,      // Start time
+                startPostcode,  // Start postcode
+                endTime,        // End time
+                endPostcode,    // End postcode
+                duration,       // Duration
+                distance        // Distance
             ]
             csvLines.append(row.joined(separator: ","))
         }
