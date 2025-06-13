@@ -20,21 +20,7 @@ struct AuthResponseV2: Codable {
         case success
         case message
         case token
-        case accessToken = "access_token"
         case user
-    }
-    
-    init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        success = try container.decode(Bool.self, forKey: .success)
-        message = try container.decode(String.self, forKey: .message)
-        // Prefer "token" key, but if nil try "access_token"
-        if let primary = try container.decodeIfPresent(String.self, forKey: .token) {
-            token = primary
-        } else {
-            token = try container.decodeIfPresent(String.self, forKey: .accessToken)
-        }
-        user = try container.decodeIfPresent(User.self, forKey: .user)
     }
 }
 
