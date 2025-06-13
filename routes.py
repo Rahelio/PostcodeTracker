@@ -330,7 +330,7 @@ def start_journey(current_user):
             logger.error(f"Error during postcode lookup: {e}")
             return jsonify({
                 'success': False, 
-                'message': 'Could not determine UK postcode for your location'
+                'message': f'Could not determine UK postcode for coordinates ({lat}, {lon}). This app only works within the UK. Please ensure you are in the UK and have a good GPS signal.'
             }), 400
         
         # Create new journey for this user
@@ -404,7 +404,7 @@ def end_journey(current_user):
             if not end_postcode:
                 return jsonify({
                     'success': False, 
-                    'message': 'Could not determine UK postcode for your location'
+                    'message': f'Could not determine UK postcode for coordinates ({lat}, {lon}). This app only works within the UK. Please ensure you are in the UK and have a good GPS signal.'
                 }), 400
                 
         except TimeoutError:
@@ -417,7 +417,7 @@ def end_journey(current_user):
             logger.error(f"Error during postcode lookup: {e}")
             return jsonify({
                 'success': False, 
-                'message': 'Could not determine UK postcode for your location'
+                'message': f'Could not determine UK postcode for coordinates ({lat}, {lon}). This app only works within the UK. Please ensure you are in the UK and have a good GPS signal.'
             }), 400
         
         # Calculate distance
