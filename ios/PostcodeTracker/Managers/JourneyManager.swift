@@ -267,18 +267,30 @@ class JourneyManager: ObservableObject {
             return
         }
         
+        print("📝 LoadJourneys: Starting to load journeys from server...")
         isLoading = true
         errorMessage = nil
         do {
             let response = try await apiService.getJourneys()
             if response.success {
+                print("📝 LoadJourneys: Successfully received \(response.journeys.count) journeys from server")
+                
+                // Debug: Print labels for each journey
+                for (index, journey) in response.journeys.enumerated() {
+                    print("📝 Journey \(index): id=\(journey.id), label='\(journey.label ?? "nil")'")
+                }
+                
                 journeys = response.journeys
                 // Persist to SwiftData
                 await persistJourneys(response.journeys)
+                
+                print("📝 LoadJourneys: Updated local journeys array with \(journeys.count) journeys")
             } else {
+                print("📝 LoadJourneys: API response not successful")
                 errorMessage = "Failed to load journeys"
             }
         } catch {
+            print("📝 LoadJourneys: Error loading journeys: \(error)")
             errorMessage = handleError(error)
             // Attempt to load cached journeys on network error
             await loadCachedJourneys()
@@ -423,30 +435,47 @@ class JourneyManager: ObservableObject {
             return
         }
         
+        print("🏷️ UpdateJourneyLabel called with journeyId: \(journeyId), label: '\(label)'")
+        
         isLoading = true
         errorMessage = nil
         
         defer { isLoading = false }
         
         do {
+            print("🏷️ Calling API updateJourneyLabel...")
             let response = try await apiService.updateJourneyLabel(journeyId: journeyId, label: label)
             
+            print("🏷️ API response success: \(response.success)")
+            print("🏷️ API response message: \(response.message ?? "nil")")
+            print("🏷️ API response journey id: \(response.journey?.id ?? -1), label: '\(response.journey?.label ?? "nil")'")
+            
             if response.success, let updatedJourney = response.journey {
+                print("🏷️ Updating journey with label: '\(updatedJourney.label ?? "nil")'")
+                
                 // Update the current journey if it's the one being labeled
                 if currentJourney?.id == updatedJourney.id {
+                    print("🏷️ Updating currentJourney (was: '\(currentJourney?.label ?? "nil")', now: '\(updatedJourney.label ?? "nil")')")
                     currentJourney = updatedJourney
                 }
                 
                 // Update in journeys list
                 if let index = journeys.firstIndex(where: { $0.id == updatedJourney.id }) {
+                    print("🏷️ Updating journey at index \(index) in journeys list")
+                    print("🏷️ Before update: '\(journeys[index].label ?? "nil")'")
                     journeys[index] = updatedJourney
+                    print("🏷️ After update: '\(journeys[index].label ?? "nil")'")
+                } else {
+                    print("🏷️ WARNING: Could not find journey with id \(updatedJourney.id) in journeys list")
                 }
                 
                 print("Journey label updated successfully: '\(label)'")
             } else {
+                print("🏷️ API response not successful or no journey returned")
                 errorMessage = response.message ?? "Failed to update journey label"
             }
         } catch {
+            print("🏷️ Error updating journey label: \(error)")
             errorMessage = handleError(error)
         }
     }

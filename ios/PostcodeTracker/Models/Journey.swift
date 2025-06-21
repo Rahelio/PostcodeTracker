@@ -77,12 +77,12 @@ struct Journey: Codable, Identifiable {
     
     // MARK: - Computed Properties
     var formattedStartTime: Date? {
-        ISO8601DateFormatter().date(from: startTime)
+        return parseISODate(startTime)
     }
     
     var formattedEndTime: Date? {
         guard let endTime = endTime else { return nil }
-        return ISO8601DateFormatter().date(from: endTime)
+        return parseISODate(endTime)
     }
     
     var formattedDistance: String {
@@ -107,5 +107,44 @@ struct Journey: Codable, Identifiable {
         } else {
             return "\(minutes)m"
         }
+    }
+    
+    // Helper method to parse ISO dates with microseconds
+    private func parseISODate(_ dateString: String) -> Date? {
+        // Try multiple formatters to handle different timestamp formats
+        let formatters = [
+            // Format with microseconds and Z timezone
+            createDateFormatter(format: "yyyy-MM-dd'T'HH:mm:ss.SSSSSS'Z'"),
+            // Format with microseconds, no timezone (assume UTC)
+            createDateFormatter(format: "yyyy-MM-dd'T'HH:mm:ss.SSSSSS"),
+            // Format with milliseconds and Z timezone
+            createDateFormatter(format: "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"),
+            // Format with milliseconds, no timezone (assume UTC)
+            createDateFormatter(format: "yyyy-MM-dd'T'HH:mm:ss.SSS"),
+            // Format without fractional seconds and Z timezone
+            createDateFormatter(format: "yyyy-MM-dd'T'HH:mm:ss'Z'"),
+            // Format without fractional seconds, no timezone (assume UTC)
+            createDateFormatter(format: "yyyy-MM-dd'T'HH:mm:ss")
+        ]
+        
+        // Try parsing with each formatter
+        for formatter in formatters {
+            if let date = formatter.date(from: dateString) {
+                return date
+            }
+        }
+        
+        // If all else fails, try ISO8601DateFormatter as backup
+        let isoFormatter = ISO8601DateFormatter()
+        isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return isoFormatter.date(from: dateString)
+    }
+    
+    private func createDateFormatter(format: String) -> DateFormatter {
+        let formatter = DateFormatter()
+        formatter.dateFormat = format
+        formatter.timeZone = TimeZone(abbreviation: "UTC")
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        return formatter
     }
 } 

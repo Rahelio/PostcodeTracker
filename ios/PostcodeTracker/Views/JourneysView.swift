@@ -120,9 +120,26 @@ struct JourneysView: View {
             } message: {
                 Text("Are you sure you want to delete all \(journeyManager.journeys.count) journeys? This cannot be undone.")
             }
-            .sheet(isPresented: $showingExportSheet) {
+            .sheet(isPresented: $showingExportSheet, onDismiss: {
+                // Clean up when sheet is dismissed
+                exportFileURL = nil
+                print("📄 Export: Sheet dismissed, cleaned up file URL")
+            }) {
                 if let fileURL = exportFileURL {
                     ActivityViewController(activityItems: [fileURL])
+                } else {
+                    // Fallback content to prevent white screen
+                    VStack {
+                        ProgressView()
+                        Text("Preparing export...")
+                    }
+                    .padding()
+                    .onAppear {
+                        // If we somehow get here without a file URL, dismiss the sheet
+                        DispatchQueue.main.async {
+                            showingExportSheet = false
+                        }
+                    }
                 }
             }
             .alert("Error", isPresented: .constant(journeyManager.errorMessage != nil)) {
@@ -175,9 +192,19 @@ struct JourneysView: View {
     }
     
     private func exportJourneys(_ journeys: [Journey]) {
+        print("📄 Export: Starting export for \(journeys.count) journeys")
+        
+        // Clear any previous export file URL first
+        exportFileURL = nil
+        
         if let fileURL = CSVExporter.exportJourneys(journeys) {
+            print("📄 Export: CSV file created at: \(fileURL)")
             exportFileURL = fileURL
             showingExportSheet = true
+            print("📄 Export: Sheet will show with file URL")
+        } else {
+            print("📄 Export: Failed to create CSV file")
+            // Could add an error alert here if needed
         }
     }
 }

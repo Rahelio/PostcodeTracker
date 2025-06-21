@@ -208,11 +208,13 @@ struct JourneyTrackerView: View {
                 JourneyLabelInputView(
                     journeyLabel: $journeyLabel,
                     onSave: {
+                        print("🏷️ onSave closure called. journeyLabel value: '\(journeyLabel)'")
+                        let labelToSave = journeyLabel  // Capture the value before clearing
                         if let journey = journeyManager.currentJourney {
                             Task {
                                 await journeyManager.updateJourneyLabel(
                                     journeyId: journey.id,
-                                    label: journeyLabel
+                                    label: labelToSave  // Use the captured value
                                 )
                             }
                         }
@@ -365,9 +367,13 @@ struct JourneyLabelInputView: View {
                         .textFieldStyle(RoundedBorderTextFieldStyle())
                         .submitLabel(.done)
                         .onSubmit {
+                            print("🏷️ Text field onSubmit. journeyLabel value: '\(journeyLabel)'")
                             if !journeyLabel.isEmpty {
                                 onSave()
                             }
+                        }
+                        .onChange(of: journeyLabel) { oldValue, newValue in
+                            print("🏷️ Text field onChange. Old: '\(oldValue)', New: '\(newValue)'")
                         }
                 }
                 .padding(.horizontal)
@@ -386,6 +392,8 @@ struct JourneyLabelInputView: View {
                 
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Save") {
+                        print("🏷️ Save button tapped. journeyLabel value: '\(journeyLabel)'")
+                        print("🏷️ journeyLabel.isEmpty: \(journeyLabel.isEmpty)")
                         onSave()
                     }
                     .fontWeight(.semibold)

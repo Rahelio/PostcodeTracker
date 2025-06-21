@@ -21,9 +21,9 @@ class PostcodeService:
     
     BASE_URL = "https://api.postcodes.io"
     BACKUP_URL = "https://postcodes.io/api"  # Fallback URL
-    MAX_RETRIES = 2  # Reduced from 3 to 2
-    RETRY_DELAY = 0.5  # Reduced from 1 to 0.5 seconds
-    REQUEST_TIMEOUT = 8  # Reduced from 10 to 8 seconds
+    MAX_RETRIES = 1  # Reduced to 1 retry for faster response
+    RETRY_DELAY = 0.3  # Reduced to 0.3 seconds
+    REQUEST_TIMEOUT = 5  # Reduced to 5 seconds for faster timeout
     
     @classmethod
     def _make_request(cls, url: str, max_retries: int = None) -> Optional[Dict[str, Any]]:

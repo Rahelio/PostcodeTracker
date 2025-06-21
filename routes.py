@@ -298,21 +298,9 @@ def start_journey(current_user):
                 'message': 'You already have an active journey'
             }), 400
         
-        # Get postcode from coordinates with timeout protection
+        # Get postcode from coordinates - timeout is handled by PostcodeService
         try:
-            import signal
-            
-            def timeout_handler(signum, frame):
-                raise TimeoutError("Postcode lookup timed out")
-            
-            # Set up timeout (20 seconds max for postcode lookup)
-            signal.signal(signal.SIGALRM, timeout_handler)
-            signal.alarm(20)
-            
             start_postcode = PostcodeService.get_postcode_from_coordinates(lat, lon)
-            
-            # Cancel timeout
-            signal.alarm(0)
             
             if not start_postcode:
                 return jsonify({
@@ -385,21 +373,9 @@ def end_journey(current_user):
         if not journey:
             return jsonify({'success': False, 'message': 'No active journey found'}), 404
         
-        # Get end postcode from coordinates with timeout protection
+        # Get end postcode from coordinates - timeout is handled by PostcodeService
         try:
-            import signal
-            
-            def timeout_handler(signum, frame):
-                raise TimeoutError("Postcode lookup timed out")
-            
-            # Set up timeout (20 seconds max for postcode lookup)
-            signal.signal(signal.SIGALRM, timeout_handler)
-            signal.alarm(20)
-            
             end_postcode = PostcodeService.get_postcode_from_coordinates(lat, lon)
-            
-            # Cancel timeout
-            signal.alarm(0)
             
             if not end_postcode:
                 return jsonify({
