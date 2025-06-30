@@ -461,7 +461,6 @@ def create_manual_journey(current_user):
         if journey_date_str:
             try:
                 # Parse ISO 8601 date string
-                from datetime import datetime
                 journey_date = datetime.fromisoformat(journey_date_str.replace('Z', '+00:00'))
             except (ValueError, AttributeError) as e:
                 logger.warning(f"Invalid journey_date format: {journey_date_str}, using current time. Error: {e}")
