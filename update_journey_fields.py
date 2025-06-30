@@ -32,7 +32,7 @@ def update_journey_fields():
         # Create database engine
         engine = create_engine(os.environ.get('DATABASE_URL', POSTGRES_URI))
         
-        with engine.connect() as connection:
+        with engine.begin() as connection:
             # Check current schema
             result = connection.execute(text("""
                 SELECT column_name 
@@ -44,56 +44,46 @@ def update_journey_fields():
             existing_columns = [row[0] for row in result.fetchall()]
             logger.info(f"Current columns in journeys table: {existing_columns}")
             
-            # Start transaction
-            trans = connection.begin()
+            # Add new columns if they don't exist
+            if 'client_name' not in existing_columns:
+                logger.info("Adding 'client_name' column...")
+                connection.execute(text("""
+                    ALTER TABLE journeys 
+                    ADD COLUMN client_name VARCHAR(100)
+                """))
+            else:
+                logger.info("✅ Column 'client_name' already exists")
             
-            try:
-                # Add new columns if they don't exist
-                if 'client_name' not in existing_columns:
-                    logger.info("Adding 'client_name' column...")
-                    connection.execute(text("""
-                        ALTER TABLE journeys 
-                        ADD COLUMN client_name VARCHAR(100)
-                    """))
-                else:
-                    logger.info("✅ Column 'client_name' already exists")
-                
-                if 'recharge_to_client' not in existing_columns:
-                    logger.info("Adding 'recharge_to_client' column...")
-                    connection.execute(text("""
-                        ALTER TABLE journeys 
-                        ADD COLUMN recharge_to_client BOOLEAN
-                    """))
-                else:
-                    logger.info("✅ Column 'recharge_to_client' already exists")
-                
-                if 'description' not in existing_columns:
-                    logger.info("Adding 'description' column...")
-                    connection.execute(text("""
-                        ALTER TABLE journeys 
-                        ADD COLUMN description TEXT
-                    """))
-                else:
-                    logger.info("✅ Column 'description' already exists")
-                
-                # Remove label column if it exists
-                if 'label' in existing_columns:
-                    logger.info("Removing 'label' column...")
-                    connection.execute(text("""
-                        ALTER TABLE journeys 
-                        DROP COLUMN label
-                    """))
-                else:
-                    logger.info("✅ Column 'label' already removed")
-                
-                # Commit transaction
-                trans.commit()
-                logger.info("✅ Successfully updated journey fields in 'journeys' table")
-                return True
-                
-            except Exception as e:
-                trans.rollback()
-                raise e
+            if 'recharge_to_client' not in existing_columns:
+                logger.info("Adding 'recharge_to_client' column...")
+                connection.execute(text("""
+                    ALTER TABLE journeys 
+                    ADD COLUMN recharge_to_client BOOLEAN
+                """))
+            else:
+                logger.info("✅ Column 'recharge_to_client' already exists")
+            
+            if 'description' not in existing_columns:
+                logger.info("Adding 'description' column...")
+                connection.execute(text("""
+                    ALTER TABLE journeys 
+                    ADD COLUMN description TEXT
+                """))
+            else:
+                logger.info("✅ Column 'description' already exists")
+            
+            # Remove label column if it exists
+            if 'label' in existing_columns:
+                logger.info("Removing 'label' column...")
+                connection.execute(text("""
+                    ALTER TABLE journeys 
+                    DROP COLUMN label
+                """))
+            else:
+                logger.info("✅ Column 'label' already removed")
+            
+            logger.info("✅ Successfully updated journey fields in 'journeys' table")
+            return True
             
     except Exception as e:
         logger.error(f"❌ Error updating journey fields: {e}")
