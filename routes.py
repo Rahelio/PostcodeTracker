@@ -682,6 +682,92 @@ def export_journeys_csv(current_user):
         logger.error(f"CSV export failed for user {current_user.username}: {e}")
         return jsonify({'success': False, 'message': 'Failed to export CSV'}), 500
 
+@app.route(f'{API_PREFIX}/journeys/export/excel', methods=['GET'])
+@require_auth
+def export_journeys_excel(current_user):
+    """Export completed journeys for the current user as an Excel (.xlsx) file."""
+    try:
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, PatternFill
+        from io import BytesIO
+        
+        # Fetch journeys for user (include both completed and active journeys)
+        journeys = Journey.query.filter_by(user_id=current_user.id).order_by(Journey.start_time.desc()).all()
+        
+        # Create workbook and select active sheet
+        workbook = Workbook()
+        sheet = workbook.active
+        sheet.title = "Journeys"
+        
+        # Header row with formatting
+        headers = [
+            'Date', 'Postcode From', 'Postcode To', 'Client Name', 'Recharge to Client', 'Description', 'Total Miles'
+        ]
+        
+        # Add headers to first row
+        for col, header in enumerate(headers, 1):
+            cell = sheet.cell(row=1, column=col, value=header)
+            # Blue background with white text
+            cell.fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+            cell.font = Font(color="FFFFFF", bold=True)
+        
+        # Data rows
+        for row_idx, journey in enumerate(journeys, 2):  # Start from row 2
+            # Extract date component only (no time)
+            start_date = ''
+            try:
+                if journey.start_time:
+                    start_date = journey.start_time.strftime('%Y-%m-%d')
+            except Exception as e:
+                logger.warning(f"Error formatting date for journey {journey.id}: {e}")
+            
+            # Handle Yes/No for recharge field
+            recharge_text = 'Yes' if journey.recharge_to_client else 'No' if journey.recharge_to_client is not None else ''
+            
+            # Fill row data
+            row_data = [
+                start_date,                                                    # Date (without time)
+                journey.start_postcode,                                       # Postcode From (Start Postcode)
+                journey.end_postcode or '',                                   # Postcode To (End Postcode) 
+                journey.client_name or '',                                    # Client Name
+                recharge_text,                                                # Recharge to Client (Yes/No)
+                journey.description or '',                                    # Description
+                float(journey.distance_miles) if journey.distance_miles else ''  # Total Miles
+            ]
+            
+            for col, value in enumerate(row_data, 1):
+                sheet.cell(row=row_idx, column=col, value=value)
+        
+        # Auto-adjust column widths for better appearance
+        for column in sheet.columns:
+            max_length = 0
+            column_letter = column[0].column_letter
+            for cell in column:
+                try:
+                    if len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            adjusted_width = min(max_length + 2, 50)  # Cap at 50 characters
+            sheet.column_dimensions[column_letter].width = adjusted_width
+        
+        # Save to BytesIO buffer
+        excel_buffer = BytesIO()
+        workbook.save(excel_buffer)
+        excel_buffer.seek(0)
+        
+        # Build response
+        return send_file(
+            excel_buffer,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name=f'journeys_{current_user.username}.xlsx'
+        )
+        
+    except Exception as e:
+        logger.error(f"Excel export failed for user {current_user.username}: {e}")
+        return jsonify({'success': False, 'message': 'Failed to export Excel file'}), 500
+
 # --- JSON error handlers for unknown routes and methods ---
 @app.errorhandler(404)
 def handle_404(e):
