@@ -11,6 +11,11 @@ struct CreateManualJourneyView: View {
     @State private var showingAlert = false
     @State private var alertMessage = ""
     
+    // Client information fields
+    @State private var clientName = ""
+    @State private var rechargeToClient = false
+    @State private var description = ""
+    
     var body: some View {
         NavigationView {
             Form {
@@ -62,6 +67,42 @@ struct CreateManualJourneyView: View {
                         }
                         .pickerStyle(.menu)
                     }
+                }
+                
+                // Client Information Section
+                Section(header: Text("Client Information")) {
+                    VStack(spacing: 16) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Client Name")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                                .foregroundColor(.primary)
+                            
+                            TextField("Enter client name", text: $clientName)
+                                .textFieldStyle(RoundedBorderTextFieldStyle())
+                                .autocapitalization(.words)
+                        }
+                        
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Description")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                                .foregroundColor(.primary)
+                            
+                            TextField("Enter description", text: $description)
+                                .textFieldStyle(RoundedBorderTextFieldStyle())
+                                .autocapitalization(.sentences)
+                        }
+                        
+                        Toggle(isOn: $rechargeToClient) {
+                            Text("Recharge to Client")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                                .foregroundColor(.primary)
+                        }
+                        .toggleStyle(SwitchToggleStyle(tint: .blue))
+                    }
+                    .padding(.vertical, 4)
                 }
                 
                 if let start = selectedStartPostcode, let end = selectedEndPostcode {
@@ -121,7 +162,7 @@ struct CreateManualJourneyView: View {
                     Button("Create") {
                         createManualJourney()
                     }
-                    .disabled(selectedStartPostcode == nil || selectedEndPostcode == nil || selectedStartPostcode?.id == selectedEndPostcode?.id || isCreating)
+                    .disabled(selectedStartPostcode == nil || selectedEndPostcode == nil || selectedStartPostcode?.id == selectedEndPostcode?.id || isCreating || !areAllFieldsValid)
                 }
             }
             .alert("Journey Creation", isPresented: $showingAlert) {
@@ -157,6 +198,14 @@ struct CreateManualJourneyView: View {
         }
     }
     
+    // MARK: - Computed Properties
+    
+    private var areAllFieldsValid: Bool {
+        !clientName.isEmpty && !description.isEmpty
+    }
+    
+    // MARK: - Methods
+    
     private func createManualJourney() {
         guard let startPostcode = selectedStartPostcode,
               let endPostcode = selectedEndPostcode else {
@@ -169,7 +218,10 @@ struct CreateManualJourneyView: View {
             do {
                 let response = try await journeyManager.createManualJourney(
                     startPostcode: startPostcode.formattedPostcode,
-                    endPostcode: endPostcode.formattedPostcode
+                    endPostcode: endPostcode.formattedPostcode,
+                    clientName: clientName,
+                    rechargeToClient: rechargeToClient,
+                    description: description
                 )
                 
                 await MainActor.run {

@@ -449,6 +449,11 @@ def create_manual_journey(current_user):
         start_postcode = data.get('start_postcode', '').strip().upper()
         end_postcode = data.get('end_postcode', '').strip().upper()
         
+        # Get client information fields
+        client_name = data.get('client_name')
+        recharge_to_client = data.get('recharge_to_client')
+        description = data.get('description')
+        
         if not start_postcode or not end_postcode:
             return jsonify({'success': False, 'message': 'Start and end postcodes are required'}), 400
         
@@ -476,6 +481,9 @@ def create_manual_journey(current_user):
             end_time=datetime.utcnow(),  # Manual journeys are immediately completed
             distance_miles=distance,
             user_id=current_user.id,
+            client_name=client_name,
+            recharge_to_client=recharge_to_client,
+            description=description,
             # No coordinates for manual journeys
             start_latitude=None,
             start_longitude=None,
@@ -498,8 +506,6 @@ def create_manual_journey(current_user):
         logger.error(f"Error creating manual journey: {e}")
         db.session.rollback()
         return jsonify({'success': False, 'message': 'Failed to create manual journey'}), 500
-
-
 
 @app.route(f'{API_PREFIX}/journey/active', methods=['GET'])
 @require_auth

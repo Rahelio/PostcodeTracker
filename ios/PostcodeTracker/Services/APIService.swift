@@ -323,13 +323,24 @@ class APIServiceV2: ObservableObject {
         return try await performRequest(request, responseType: JourneyResponse.self)
     }
     
-    func createManualJourney(startPostcode: String, endPostcode: String) async throws -> JourneyResponse {
+    func createManualJourney(startPostcode: String, endPostcode: String, clientName: String? = nil, rechargeToClient: Bool? = nil, description: String? = nil) async throws -> JourneyResponse {
         var request = try createRequest(for: "journey/manual", method: "POST")
         
-        let body = [
+        var body: [String: Any] = [
             "start_postcode": startPostcode,
             "end_postcode": endPostcode
         ]
+        
+        // Add new fields if provided
+        if let clientName = clientName {
+            body["client_name"] = clientName
+        }
+        if let rechargeToClient = rechargeToClient {
+            body["recharge_to_client"] = rechargeToClient
+        }
+        if let description = description {
+            body["description"] = description
+        }
         
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         
@@ -384,7 +395,7 @@ class APIServiceV2: ObservableObject {
         return try await performRequest(request, responseType: APIResponse<String>.self)
     }
     
-    // MARK: - CSV Export
+    // MARK: - Export Functions
     func exportJourneysCSV() async throws -> Data {
         let request = try createRequest(for: "journeys/export/csv", method: "GET")
         do {
@@ -392,6 +403,20 @@ class APIServiceV2: ObservableObject {
             guard let httpResponse = response as? HTTPURLResponse,
                   httpResponse.statusCode >= 200 && httpResponse.statusCode < 300 else {
                 throw APIError.serverError("CSV export failed")
+            }
+            return data
+        } catch {
+            throw APIError.networkError(error)
+        }
+    }
+    
+    func exportJourneysExcel() async throws -> Data {
+        let request = try createRequest(for: "journeys/export/excel", method: "GET")
+        do {
+            let (data, response) = try await session.data(for: request)
+            guard let httpResponse = response as? HTTPURLResponse,
+                  httpResponse.statusCode >= 200 && httpResponse.statusCode < 300 else {
+                throw APIError.serverError("Excel export failed")
             }
             return data
         } catch {

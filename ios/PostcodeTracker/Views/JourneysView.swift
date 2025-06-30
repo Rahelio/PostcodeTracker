@@ -9,6 +9,8 @@ struct JourneysView: View {
     @State private var showingDeleteAllAlert = false
     @State private var showingExportSheet = false
     @State private var exportFileURL: URL?
+    @State private var isExportingCSV = false
+    @State private var isExportingExcel = false
     
     var body: some View {
         NavigationView {
@@ -64,20 +66,85 @@ struct JourneysView: View {
             .navigationTitle("Journey History")
             .toolbar {
                 ToolbarItemGroup(placement: .navigationBarTrailing) {
-                    if !journeyManager.journeys.isEmpty {
-                        Menu("Export") {
-                            Button("Export All") {
-                                exportJourneys(journeyManager.journeys)
+                    // Debug: Always show a button to help diagnose the issue
+                    Button("Debug Info") {
+                        print("🐛 DEBUG INFO:")
+                        print("- Journeys count: \(journeyManager.journeys.count)")
+                        print("- Is loading: \(journeyManager.isLoading)")
+                        print("- Error message: \(journeyManager.errorMessage ?? "none")")
+                        print("- Is authenticated: \(AuthManager.shared.isAuthenticated)")
+                    }
+                    
+                    // Temporary: Always show export menu for testing
+                    Menu("Export") {
+                            // Export All section
+                            Section("Export All") {
+                                Button(action: {
+                                    print("🔘 User tapped CSV Export button")
+                                    exportJourneysCSV(journeyManager.journeys)
+                                }) {
+                                    HStack {
+                                        Text("CSV Format")
+                                        if isExportingCSV {
+                                            Spacer()
+                                            ProgressView()
+                                                .scaleEffect(0.8)
+                                        }
+                                    }
+                                }
+                                .disabled(isExportingCSV || isExportingExcel)
+                                
+                                Button(action: {
+                                    print("🔘 User tapped Excel Export button")
+                                    exportJourneysExcel(journeyManager.journeys)
+                                }) {
+                                    HStack {
+                                        Text("Excel Format")
+                                        if isExportingExcel {
+                                            Spacer()
+                                            ProgressView()
+                                                .scaleEffect(0.8)
+                                        }
+                                    }
+                                }
+                                .disabled(isExportingCSV || isExportingExcel)
                             }
                             
+                            // Export Selected section (only show when in selection mode)
                             if isSelectionMode && !selectedJourneys.isEmpty {
-                                Button("Export Selected") {
-                                    let selectedJourneyObjects = journeyManager.journeys.filter { selectedJourneys.contains($0.id) }
-                                    exportJourneys(selectedJourneyObjects)
+                                Section("Export Selected (\(selectedJourneys.count))") {
+                                    Button(action: {
+                                        let selectedJourneyObjects = journeyManager.journeys.filter { selectedJourneys.contains($0.id) }
+                                        exportJourneysCSV(selectedJourneyObjects)
+                                    }) {
+                                        HStack {
+                                            Text("CSV Format")
+                                            if isExportingCSV {
+                                                Spacer()
+                                                ProgressView()
+                                                    .scaleEffect(0.8)
+                                            }
+                                        }
+                                    }
+                                    .disabled(isExportingCSV || isExportingExcel)
+                                    
+                                    Button(action: {
+                                        let selectedJourneyObjects = journeyManager.journeys.filter { selectedJourneys.contains($0.id) }
+                                        exportJourneysExcel(selectedJourneyObjects)
+                                    }) {
+                                        HStack {
+                                            Text("Excel Format")
+                                            if isExportingExcel {
+                                                Spacer()
+                                                ProgressView()
+                                                    .scaleEffect(0.8)
+                                            }
+                                        }
+                                    }
+                                    .disabled(isExportingCSV || isExportingExcel)
                                 }
                             }
                         }
-                        .disabled(journeyManager.journeys.isEmpty)
                         
                         Button(isSelectionMode ? "Done" : "Select") {
                             isSelectionMode.toggle()
@@ -85,7 +152,6 @@ struct JourneysView: View {
                                 selectedJourneys.removeAll()
                             }
                         }
-                    }
                 }
                 
                 ToolbarItemGroup(placement: .navigationBarLeading) {
@@ -123,21 +189,37 @@ struct JourneysView: View {
             .sheet(isPresented: $showingExportSheet, onDismiss: {
                 // Clean up when sheet is dismissed
                 exportFileURL = nil
+                isExportingCSV = false
+                isExportingExcel = false
                 print("📄 Export: Sheet dismissed, cleaned up file URL")
             }) {
                 if let fileURL = exportFileURL {
                     ActivityViewController(activityItems: [fileURL])
                 } else {
                     // Fallback content to prevent white screen
-                    VStack {
+                    VStack(spacing: 16) {
                         ProgressView()
+                            .scaleEffect(1.2)
                         Text("Preparing export...")
+                            .font(.subheadline)
+                        
+                        if isExportingCSV {
+                            Text("Generating CSV file...")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        } else if isExportingExcel {
+                            Text("Generating Excel file...")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
                     }
                     .padding()
                     .onAppear {
-                        // If we somehow get here without a file URL, dismiss the sheet
-                        DispatchQueue.main.async {
-                            showingExportSheet = false
+                        // If we somehow get here without a file URL and not exporting, dismiss the sheet
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                            if !isExportingCSV && !isExportingExcel {
+                                showingExportSheet = false
+                            }
                         }
                     }
                 }
@@ -191,20 +273,71 @@ struct JourneysView: View {
         isSelectionMode = false
     }
     
-    private func exportJourneys(_ journeys: [Journey]) {
-        print("📄 Export: Starting export for \(journeys.count) journeys")
+    private func exportJourneysCSV(_ journeys: [Journey]) {
+        print("📄 Export: Starting CSV export for \(journeys.count) journeys")
+        print("📄 Export: User is authenticated: \(AuthManager.shared.isAuthenticated)")
+        isExportingCSV = true
         
         // Clear any previous export file URL first
         exportFileURL = nil
         
-        if let fileURL = CSVExporter.exportJourneys(journeys) {
-            print("📄 Export: CSV file created at: \(fileURL)")
-            exportFileURL = fileURL
-            showingExportSheet = true
-            print("📄 Export: Sheet will show with file URL")
-        } else {
-            print("📄 Export: Failed to create CSV file")
-            // Could add an error alert here if needed
+        Task {
+            do {
+                let csvData = try await journeyManager.exportJourneysCSV()
+                
+                // Save to temporary file
+                let tempURL = FileManager.default.temporaryDirectory
+                    .appendingPathComponent("journeys_export_\(DateFormatter.filenameDateFormatter.string(from: Date())).csv")
+                
+                try csvData.write(to: tempURL)
+                
+                await MainActor.run {
+                    print("📄 Export: CSV file created at: \(tempURL)")
+                    exportFileURL = tempURL
+                    showingExportSheet = true
+                    isExportingCSV = false
+                }
+            } catch {
+                await MainActor.run {
+                    print("📄 Export: Failed to create CSV file: \(error)")
+                    // Could show error alert here
+                    isExportingCSV = false
+                }
+            }
+        }
+    }
+    
+    private func exportJourneysExcel(_ journeys: [Journey]) {
+        print("📄 Export: Starting Excel export for \(journeys.count) journeys")
+        print("📄 Export: User is authenticated: \(AuthManager.shared.isAuthenticated)")
+        isExportingExcel = true
+        
+        // Clear any previous export file URL first
+        exportFileURL = nil
+        
+        Task {
+            do {
+                let excelData = try await journeyManager.exportJourneysExcel()
+                
+                // Save to temporary file
+                let tempURL = FileManager.default.temporaryDirectory
+                    .appendingPathComponent("journeys_export_\(DateFormatter.filenameDateFormatter.string(from: Date())).xlsx")
+                
+                try excelData.write(to: tempURL)
+                
+                await MainActor.run {
+                    print("📄 Export: Excel file created at: \(tempURL)")
+                    exportFileURL = tempURL
+                    showingExportSheet = true
+                    isExportingExcel = false
+                }
+            } catch {
+                await MainActor.run {
+                    print("📄 Export: Failed to create Excel file: \(error)")
+                    // Could show error alert here
+                    isExportingExcel = false
+                }
+            }
         }
     }
 }

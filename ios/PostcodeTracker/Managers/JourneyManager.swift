@@ -435,7 +435,7 @@ class JourneyManager: ObservableObject {
     
     // MARK: - Manual Journey Creation
     
-    func createManualJourney(startPostcode: String, endPostcode: String) async throws -> JourneyResponse {
+    func createManualJourney(startPostcode: String, endPostcode: String, clientName: String? = nil, rechargeToClient: Bool? = nil, description: String? = nil) async throws -> JourneyResponse {
         guard apiService.isAuthenticated else {
             throw APIError.unauthorized
         }
@@ -448,7 +448,10 @@ class JourneyManager: ObservableObject {
         do {
             let response = try await apiService.createManualJourney(
                 startPostcode: startPostcode,
-                endPostcode: endPostcode
+                endPostcode: endPostcode,
+                clientName: clientName,
+                rechargeToClient: rechargeToClient,
+                description: description
             )
             
             if response.success, let journey = response.journey {
@@ -565,5 +568,23 @@ class JourneyManager: ObservableObject {
         } catch {
             print("Failed to load cached journeys: \(error)")
         }
+    }
+    
+    // MARK: - Export Methods
+    
+    func exportJourneysCSV() async throws -> Data {
+        guard apiService.isAuthenticated else {
+            throw APIError.unauthorized
+        }
+        
+        return try await apiService.exportJourneysCSV()
+    }
+    
+    func exportJourneysExcel() async throws -> Data {
+        guard apiService.isAuthenticated else {
+            throw APIError.unauthorized
+        }
+        
+        return try await apiService.exportJourneysExcel()
     }
 } 
