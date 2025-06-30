@@ -24,65 +24,49 @@ class CSVExporter {
         
         var csvLines: [String] = []
         
-        // Header - matching user's requested format
+        // Header - new format as requested
         let headers = [
-            "Label",
             "Date",
-            "Start Time",
-            "Start Postcode",
-            "End Time", 
-            "End Postcode",
-            "Duration",
-            "Distance (miles)"
+            "Postcode From",
+            "Postcode To",
+            "Client Name",
+            "Recharge to Client",
+            "Description",
+            "Total Miles"
         ]
         csvLines.append(headers.joined(separator: ","))
         
         // Data rows
         for journey in journeys {
-            // Extract date and time components using DateFormatter
+            // Extract date component only (no time)
             let dateFormatter = DateFormatter()
-            let timeFormatter = DateFormatter()
-            
             dateFormatter.dateFormat = "yyyy-MM-dd"
-            timeFormatter.dateFormat = "HH:mm:ss"
             
-            let startDate = journey.formattedStartTime.map { dateFormatter.string(from: $0) } ?? ""
-            let startTime = journey.formattedStartTime.map { timeFormatter.string(from: $0) } ?? ""
-            let endTime = journey.formattedEndTime.map { timeFormatter.string(from: $0) } ?? ""
-            
-            let label = escapeCSVField(journey.label ?? "")
-            let startPostcode = escapeCSVField(journey.startPostcode)
-            let endPostcode = escapeCSVField(journey.endPostcode ?? "")
-            let distance = journey.distanceMiles.map { String(format: "%.2f", $0) } ?? ""
-            let duration = calculateDuration(start: journey.formattedStartTime, end: journey.formattedEndTime)
+            let date = journey.formattedStartTime.map { dateFormatter.string(from: $0) } ?? ""
+            let postcodeFrom = escapeCSVField(journey.startPostcode)
+            let postcodeTo = escapeCSVField(journey.endPostcode ?? "")
+            let clientName = escapeCSVField(journey.clientName ?? "")
+            let rechargeToClient = journey.rechargeToClient == true ? "Yes" : (journey.rechargeToClient == false ? "No" : "")
+            let description = escapeCSVField(journey.description ?? "")
+            let totalMiles = journey.distanceMiles.map { String(format: "%.2f", $0) } ?? ""
             
             print("CSV Export Debug - Journey \(journey.id):")
-            print("  Raw startTime string: '\(journey.startTime)'")
-            print("  Raw endTime string: '\(journey.endTime ?? "nil")'")
-            print("  Parsed formattedStartTime: \(journey.formattedStartTime?.description ?? "nil")")
-            print("  Parsed formattedEndTime: \(journey.formattedEndTime?.description ?? "nil")")
-            print("  Label: '\(label)'")
-            print("  Start Date: '\(startDate)'")
-            print("  Start Time: '\(startTime)'")
-            print("  End Time: '\(endTime)'")
-            print("  Duration: '\(duration)'")
-            print("  Distance: '\(distance)'")
-            print("  Raw journey.label: '\(journey.label ?? "nil")'")
-            print("  Raw journey.distanceMiles: '\(journey.distanceMiles?.description ?? "nil")'")
-            print("  Journey.label is nil: \(journey.label == nil)")
-            print("  Journey.label is empty: \(journey.label?.isEmpty ?? false)")
-            print("  Escaped label: '\(label)'")
-            print("  Full journey object: \(journey)")
+            print("  Date: '\(date)'")
+            print("  Postcode From: '\(postcodeFrom)'")
+            print("  Postcode To: '\(postcodeTo)'")
+            print("  Client Name: '\(clientName)'")
+            print("  Recharge to Client: '\(rechargeToClient)'")
+            print("  Description: '\(description)'")
+            print("  Total Miles: '\(totalMiles)'")
             
             let row = [
-                label,          // Label (user created)
-                startDate,      // Date
-                startTime,      // Start time
-                startPostcode,  // Start postcode
-                endTime,        // End time
-                endPostcode,    // End postcode
-                duration,       // Duration
-                distance        // Distance
+                date,
+                postcodeFrom,
+                postcodeTo,
+                clientName,
+                rechargeToClient,
+                description,
+                totalMiles
             ]
             csvLines.append(row.joined(separator: ","))
         }

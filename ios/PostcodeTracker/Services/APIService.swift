@@ -286,13 +286,24 @@ class APIServiceV2: ObservableObject {
     }
     
     // MARK: - Journey Management
-    func startJourney(latitude: Double, longitude: Double) async throws -> JourneyResponse {
+    func startJourney(latitude: Double, longitude: Double, clientName: String? = nil, rechargeToClient: Bool? = nil, description: String? = nil) async throws -> JourneyResponse {
         var request = try createRequest(for: "journey/start", method: "POST")
         
-        let body = [
+        var body: [String: Any] = [
             "latitude": latitude,
             "longitude": longitude
         ]
+        
+        // Add new fields if provided
+        if let clientName = clientName {
+            body["client_name"] = clientName
+        }
+        if let rechargeToClient = rechargeToClient {
+            body["recharge_to_client"] = rechargeToClient
+        }
+        if let description = description {
+            body["description"] = description
+        }
         
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         
@@ -328,19 +339,6 @@ class APIServiceV2: ObservableObject {
     func getActiveJourney() async throws -> ActiveJourneyResponse {
         let request = try createRequest(for: "journey/active", method: "GET")
         return try await performRequest(request, responseType: ActiveJourneyResponse.self)
-    }
-    
-    func updateJourneyLabel(journeyId: Int, label: String) async throws -> JourneyResponse {
-        var request = try createRequest(for: "journey/update-label", method: "POST")
-        
-        let body = [
-            "journey_id": journeyId,
-            "label": label
-        ] as [String : Any]
-        
-        request.httpBody = try JSONSerialization.data(withJSONObject: body)
-        
-        return try await performRequest(request, responseType: JourneyResponse.self)
     }
     
     func getJourneys() async throws -> JourneysResponse {

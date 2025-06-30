@@ -228,17 +228,36 @@ struct JourneyRow: View {
             }
             
             VStack(alignment: .leading, spacing: 8) {
-                // Journey label (if exists)
-                if let label = journey.label, !label.isEmpty {
+                // Journey client info (if exists)
+                if let clientName = journey.clientName, !clientName.isEmpty {
                     HStack {
-                        Image(systemName: "tag.fill")
+                        Image(systemName: "person.fill")
                             .font(.caption2)
                             .foregroundColor(.blue)
-                        Text(label)
+                        Text(clientName)
                             .font(.subheadline)
                             .fontWeight(.medium)
                             .foregroundColor(.blue)
+                        
+                        if let rechargeToClient = journey.rechargeToClient {
+                            Spacer()
+                            Text(rechargeToClient ? "Rechargeable" : "Non-rechargeable")
+                                .font(.caption)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 2)
+                                .background(rechargeToClient ? Color.green.opacity(0.1) : Color.gray.opacity(0.1))
+                                .foregroundColor(rechargeToClient ? .green : .gray)
+                                .cornerRadius(4)
+                        }
                     }
+                }
+                
+                // Description (if exists)
+                if let description = journey.description, !description.isEmpty {
+                    Text(description)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .lineLimit(2)
                 }
                 
                 // Postcodes

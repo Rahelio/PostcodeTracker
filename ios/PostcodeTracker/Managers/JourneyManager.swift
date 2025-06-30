@@ -32,7 +32,7 @@ class JourneyManager: ObservableObject {
     
     // MARK: - Journey Management
     
-    func startJourney() async {
+    func startJourney(clientName: String? = nil, rechargeToClient: Bool? = nil, description: String? = nil) async {
         // Debug authentication state
         print("🔍 StartJourney - Authentication Debug:")
         print("- APIService.isAuthenticated: \(apiService.isAuthenticated)")
@@ -63,7 +63,10 @@ class JourneyManager: ObservableObject {
             // Start journey with API - with retry logic for network timeouts
             let response = try await startJourneyWithRetry(
                 latitude: location.coordinate.latitude,
-                longitude: location.coordinate.longitude
+                longitude: location.coordinate.longitude,
+                clientName: clientName,
+                rechargeToClient: rechargeToClient,
+                description: description
             )
             
             if response.success, let journey = response.journey {
@@ -85,7 +88,7 @@ class JourneyManager: ObservableObject {
         isLoading = false
     }
     
-    private func startJourneyWithRetry(latitude: Double, longitude: Double, maxRetries: Int = 2) async throws -> JourneyResponse {
+    private func startJourneyWithRetry(latitude: Double, longitude: Double, clientName: String? = nil, rechargeToClient: Bool? = nil, description: String? = nil, maxRetries: Int = 2) async throws -> JourneyResponse {
         var lastError: Error?
         
         for attempt in 0...maxRetries {
@@ -93,7 +96,10 @@ class JourneyManager: ObservableObject {
                 print("🚀 Starting journey attempt \(attempt + 1)/\(maxRetries + 1)")
                 let response = try await apiService.startJourney(
                     latitude: latitude,
-                    longitude: longitude
+                    longitude: longitude,
+                    clientName: clientName,
+                    rechargeToClient: rechargeToClient,
+                    description: description
                 )
                 return response
             } catch let error as APIError {
@@ -275,9 +281,9 @@ class JourneyManager: ObservableObject {
             if response.success {
                 print("📝 LoadJourneys: Successfully received \(response.journeys.count) journeys from server")
                 
-                // Debug: Print labels for each journey
+                // Debug: Print client info for each journey
                 for (index, journey) in response.journeys.enumerated() {
-                    print("📝 Journey \(index): id=\(journey.id), label='\(journey.label ?? "nil")'")
+                    print("📝 Journey \(index): id=\(journey.id), client='\(journey.clientName ?? "nil")'")
                 }
                 
                 journeys = response.journeys
@@ -427,59 +433,6 @@ class JourneyManager: ObservableObject {
         return currentJourney != nil && isTrackingJourney
     }
     
-    // MARK: - Journey Label Management
-    
-    func updateJourneyLabel(journeyId: Int, label: String) async {
-        guard apiService.isAuthenticated else {
-            errorMessage = "Please log in to update journey label"
-            return
-        }
-        
-        print("🏷️ UpdateJourneyLabel called with journeyId: \(journeyId), label: '\(label)'")
-        
-        isLoading = true
-        errorMessage = nil
-        
-        defer { isLoading = false }
-        
-        do {
-            print("🏷️ Calling API updateJourneyLabel...")
-            let response = try await apiService.updateJourneyLabel(journeyId: journeyId, label: label)
-            
-            print("🏷️ API response success: \(response.success)")
-            print("🏷️ API response message: \(response.message ?? "nil")")
-            print("🏷️ API response journey id: \(response.journey?.id ?? -1), label: '\(response.journey?.label ?? "nil")'")
-            
-            if response.success, let updatedJourney = response.journey {
-                print("🏷️ Updating journey with label: '\(updatedJourney.label ?? "nil")'")
-                
-                // Update the current journey if it's the one being labeled
-                if currentJourney?.id == updatedJourney.id {
-                    print("🏷️ Updating currentJourney (was: '\(currentJourney?.label ?? "nil")', now: '\(updatedJourney.label ?? "nil")')")
-                    currentJourney = updatedJourney
-                }
-                
-                // Update in journeys list
-                if let index = journeys.firstIndex(where: { $0.id == updatedJourney.id }) {
-                    print("🏷️ Updating journey at index \(index) in journeys list")
-                    print("🏷️ Before update: '\(journeys[index].label ?? "nil")'")
-                    journeys[index] = updatedJourney
-                    print("🏷️ After update: '\(journeys[index].label ?? "nil")'")
-                } else {
-                    print("🏷️ WARNING: Could not find journey with id \(updatedJourney.id) in journeys list")
-                }
-                
-                print("Journey label updated successfully: '\(label)'")
-            } else {
-                print("🏷️ API response not successful or no journey returned")
-                errorMessage = response.message ?? "Failed to update journey label"
-            }
-        } catch {
-            print("🏷️ Error updating journey label: \(error)")
-            errorMessage = handleError(error)
-        }
-    }
-    
     // MARK: - Manual Journey Creation
     
     func createManualJourney(startPostcode: String, endPostcode: String) async throws -> JourneyResponse {
@@ -604,7 +557,9 @@ class JourneyManager: ObservableObject {
                        endPostcode: entity.endPostcode,
                        distanceMiles: entity.distanceMiles,
                        isActive: entity.isActive,
-                       label: nil) // Labels not stored locally for cached journeys
+                       clientName: nil, // Client details not stored locally for cached journeys
+                       rechargeToClient: nil,
+                       description: nil)
             }
             self.journeys = mapped
         } catch {

@@ -277,9 +277,19 @@ def start_journey(current_user):
         
         latitude = data.get('latitude')
         longitude = data.get('longitude')
+        client_name = data.get('client_name', '').strip()
+        recharge_to_client = data.get('recharge_to_client', False)
+        description = data.get('description', '').strip()
         
         if latitude is None or longitude is None:
             return jsonify({'success': False, 'message': 'Latitude and longitude are required'}), 400
+        
+        # Validate required fields
+        if not client_name:
+            return jsonify({'success': False, 'message': 'Client name is required'}), 400
+        
+        if not description:
+            return jsonify({'success': False, 'message': 'Description is required'}), 400
         
         # Validate coordinates
         try:
@@ -326,7 +336,10 @@ def start_journey(current_user):
             start_postcode=start_postcode,
             start_latitude=lat,
             start_longitude=lon,
-            user_id=current_user.id
+            user_id=current_user.id,
+            client_name=client_name,
+            recharge_to_client=recharge_to_client,
+            description=description
         )
         db.session.add(journey)
         db.session.commit()
@@ -486,42 +499,7 @@ def create_manual_journey(current_user):
         db.session.rollback()
         return jsonify({'success': False, 'message': 'Failed to create manual journey'}), 500
 
-@app.route(f'{API_PREFIX}/journey/update-label', methods=['POST'])
-@require_auth
-def update_journey_label(current_user):
-    """Update the label of an active journey. Requires authentication."""
-    try:
-        data = request.get_json()
-        if not data:
-            return jsonify({'success': False, 'message': 'No data provided'}), 400
-        
-        journey_id = data.get('journey_id')
-        label = data.get('label', '').strip()
-        
-        if not journey_id:
-            return jsonify({'success': False, 'message': 'Journey ID is required'}), 400
-        
-        # Find the journey for this user
-        journey = Journey.query.filter_by(id=journey_id, user_id=current_user.id).first()
-        if not journey:
-            return jsonify({'success': False, 'message': 'Journey not found'}), 404
-        
-        # Update the label
-        journey.label = label if label else None
-        db.session.commit()
-        
-        logger.info(f"User {current_user.username} updated label for journey {journey.id} to '{label}'")
-        
-        return jsonify({
-            'success': True,
-            'message': 'Journey label updated successfully',
-            'journey': journey.to_dict()
-        })
-        
-    except Exception as e:
-        logger.error(f"Error updating journey label: {e}")
-        db.session.rollback()
-        return jsonify({'success': False, 'message': 'Failed to update journey label'}), 500
+
 
 @app.route(f'{API_PREFIX}/journey/active', methods=['GET'])
 @require_auth
@@ -660,49 +638,33 @@ def export_journeys_csv(current_user):
         csv_buffer = StringIO()
         writer = csv.writer(csv_buffer)
         
-        # Header - user's requested format
+        # Header - new requested format
         writer.writerow([
-            'Label', 'Date', 'Start Time', 'Start Postcode', 'End Time', 'End Postcode', 'Duration', 'Distance (miles)'
+            'Date', 'Postcode From', 'Postcode To', 'Client Name', 'Recharge to Client', 'Description', 'Total Miles'
         ])
         
         # Data rows
         for j in journeys:
-            # Extract date and time components - handle datetime objects properly
+            # Extract date component only (no time)
             start_date = ''
-            start_time = ''
-            end_time = ''
-            duration = ''
             
             try:
                 if j.start_time:
                     start_date = j.start_time.strftime('%Y-%m-%d')
-                    start_time = j.start_time.strftime('%H:%M:%S')
-                
-                if j.end_time:
-                    end_time = j.end_time.strftime('%H:%M:%S')
-                
-                # Calculate duration
-                if j.start_time and j.end_time:
-                    time_diff = j.end_time - j.start_time
-                    total_seconds = int(time_diff.total_seconds())
-                    hours = total_seconds // 3600
-                    minutes = (total_seconds % 3600) // 60
-                    if hours > 0:
-                        duration = f"{hours}h {minutes}m"
-                    else:
-                        duration = f"{minutes}m"
             except Exception as e:
-                logger.warning(f"Error formatting datetime for journey {j.id}: {e}")
+                logger.warning(f"Error formatting date for journey {j.id}: {e}")
+            
+            # Handle Yes/No for recharge field
+            recharge_text = 'Yes' if j.recharge_to_client else 'No' if j.recharge_to_client is not None else ''
             
             writer.writerow([
-                j.label or '',  # Label (user created)
-                start_date,     # Date
-                start_time,     # Start time
-                j.start_postcode,  # Start postcode
-                end_time,       # End time
-                j.end_postcode or '',  # End postcode
-                duration,       # Duration
-                f"{j.distance_miles:.2f}" if j.distance_miles else ''  # Distance
+                start_date,                                          # Date (without time)
+                j.start_postcode,                                   # Postcode From (Start Postcode)
+                j.end_postcode or '',                               # Postcode To (End Postcode)
+                j.client_name or '',                                # Client Name
+                recharge_text,                                      # Recharge to Client (Yes/No)
+                j.description or '',                                # Description
+                f"{j.distance_miles:.2f}" if j.distance_miles else ''  # Total Miles
             ])
         
         # Convert to bytes

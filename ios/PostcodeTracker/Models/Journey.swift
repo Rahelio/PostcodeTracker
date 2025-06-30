@@ -13,7 +13,9 @@ struct Journey: Codable, Identifiable {
     let endPostcode: String?
     let distanceMiles: Double?
     let isActive: Bool
-    let label: String?
+    let clientName: String?
+    let rechargeToClient: Bool?
+    let description: String?
     private let _isManual: Bool?
     let startLocation: Postcode?
     let endLocation: Postcode?
@@ -30,7 +32,9 @@ struct Journey: Codable, Identifiable {
          endPostcode: String?,
          distanceMiles: Double?,
          isActive: Bool,
-         label: String? = nil,
+         clientName: String? = nil,
+         rechargeToClient: Bool? = nil,
+         description: String? = nil,
          isManual: Bool? = nil,
          startLocation: Postcode? = nil,
          endLocation: Postcode? = nil) {
@@ -46,7 +50,9 @@ struct Journey: Codable, Identifiable {
         self.endPostcode = endPostcode
         self.distanceMiles = distanceMiles
         self.isActive = isActive
-        self.label = label
+        self.clientName = clientName
+        self.rechargeToClient = rechargeToClient
+        self.description = description
         self._isManual = isManual
         self.startLocation = startLocation
         self.endLocation = endLocation
@@ -65,7 +71,9 @@ struct Journey: Codable, Identifiable {
         case endPostcode = "end_postcode"
         case distanceMiles = "distance_miles"
         case isActive = "is_active"
-        case label = "label"
+        case clientName = "client_name"
+        case rechargeToClient = "recharge_to_client"
+        case description = "description"
         case _isManual = "is_manual"
         case startLocation = "start_location"
         case endLocation = "end_location"

@@ -57,8 +57,14 @@ struct JourneyTrackerView: View {
     @StateObject private var locationManager = LocationManager.shared
     @State private var showingAlert = false
     @State private var alertMessage = ""
-    @State private var showingLabelInput = false
-    @State private var journeyLabel = ""
+    
+    // New journey input fields
+    @State private var clientName = ""
+    @State private var rechargeToClient = false
+    @State private var description = ""
+    
+    // Animation state
+    @State private var rotationAngle: Double = 0
     
     var body: some View {
         NavigationView {
@@ -67,12 +73,12 @@ struct JourneyTrackerView: View {
                 Color(.systemGroupedBackground)
                     .ignoresSafeArea()
                 
-                VStack {
-                    // Top spacer for vertical centering
-                    Spacer()
-                    
-                    // Centered content
+                ScrollView {
                     VStack(spacing: 32) {
+                        // Top spacer
+                        Spacer()
+                            .frame(height: 40)
+                        
                         // Status Icon
                         ZStack {
                             Circle()
@@ -114,104 +120,164 @@ struct JourneyTrackerView: View {
                                     .multilineTextAlignment(.center)
                                     .transition(.opacity.combined(with: .scale))
                             } else if let journey = journeyManager.currentJourney {
-                                Text("Started from \(journey.startPostcode)")
-                                    .font(.subheadline)
-                                    .foregroundColor(.secondary)
-                                    .multilineTextAlignment(.center)
+                                VStack(spacing: 4) {
+                                    Text("Started from \(journey.startPostcode)")
+                                        .font(.subheadline)
+                                        .foregroundColor(.secondary)
+                                    
+                                    if let clientName = journey.clientName, !clientName.isEmpty {
+                                        Text("Client: \(clientName)")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
+                                }
+                                .multilineTextAlignment(.center)
                             }
                         }
                         .animation(.easeInOut(duration: 0.3), value: journeyManager.isLoading)
                         
-                        // Action Button
-                        if journeyManager.hasActiveJourney {
-                            Button(action: {
-                                Task {
-                                    await journeyManager.endJourney()
-                                    if let error = journeyManager.errorMessage {
-                                        alertMessage = error
-                                        showingAlert = true
+                        // Journey Input Form (only shown when no active journey)
+                        if !journeyManager.hasActiveJourney {
+                            VStack(spacing: 20) {
+                                Text("Journey Details")
+                                    .font(.headline)
+                                    .foregroundColor(.primary)
+                                
+                                VStack(spacing: 16) {
+                                    // Client Name Field
+                                    VStack(alignment: .leading, spacing: 8) {
+                                        Text("Client Name*")
+                                            .font(.subheadline)
+                                            .fontWeight(.medium)
+                                            .foregroundColor(.primary)
+                                        
+                                        TextField("Enter client name", text: $clientName)
+                                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                                            .autocapitalization(.words)
+                                    }
+                                    
+                                    // Description Field
+                                    VStack(alignment: .leading, spacing: 8) {
+                                        Text("Description*")
+                                            .font(.subheadline)
+                                            .fontWeight(.medium)
+                                            .foregroundColor(.primary)
+                                        
+                                        TextField("Enter journey description", text: $description)
+                                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                                            .autocapitalization(.sentences)
+                                    }
+                                    
+                                    // Recharge to Client Toggle
+                                    HStack {
+                                        Text("Recharge to Client*")
+                                            .font(.subheadline)
+                                            .fontWeight(.medium)
+                                            .foregroundColor(.primary)
+                                        
+                                        Spacer()
+                                        
+                                        Toggle("", isOn: $rechargeToClient)
+                                            .labelsHidden()
                                     }
                                 }
-                            }) {
-                                HStack(spacing: 12) {
-                                    if journeyManager.isLoading {
-                                        ProgressView()
-                                            .scaleEffect(0.9)
-                                            .tint(.white)
-                                    } else {
-                                        Image(systemName: "stop.fill")
-                                    }
-                                    Text(journeyManager.isLoading ? "Ending Journey..." : "End Journey")
-                                        .fontWeight(.semibold)
-                                }
-                                .frame(maxWidth: .infinity)
-                                .padding()
-                                .background(journeyManager.isLoading ? Color.red.opacity(0.7) : Color.red)
-                                .foregroundColor(.white)
+                                .padding(.horizontal, 20)
+                                .padding(.vertical, 16)
+                                .background(Color(.secondarySystemGroupedBackground))
                                 .cornerRadius(12)
-                                .animation(.easeInOut(duration: 0.2), value: journeyManager.isLoading)
                             }
-                            .disabled(journeyManager.isLoading)
-                        } else {
-                            Button(action: {
-                                Task {
-                                    await journeyManager.startJourney()
-                                    if let error = journeyManager.errorMessage {
-                                        alertMessage = error
-                                        showingAlert = true
-                                    } else if journeyManager.hasActiveJourney {
-                                        // Journey started successfully, show label input
-                                        showingLabelInput = true
-                                    }
-                                }
-                            }) {
-                                HStack(spacing: 12) {
-                                    if journeyManager.isLoading {
-                                        ProgressView()
-                                            .scaleEffect(0.9)
-                                            .tint(.white)
-                                    } else {
-                                        Image(systemName: "play.fill")
-                                    }
-                                    Text(journeyManager.isLoading ? "Starting Journey..." : "Start Journey")
-                                        .fontWeight(.semibold)
-                                }
-                                .frame(maxWidth: .infinity)
-                                .padding()
-                                .background(journeyManager.isLoading ? Color.green.opacity(0.7) : Color.green)
-                                .foregroundColor(.white)
-                                .cornerRadius(12)
-                                .animation(.easeInOut(duration: 0.2), value: journeyManager.isLoading)
-                            }
-                            .disabled(journeyManager.isLoading || locationManager.authorizationStatus == .denied)
+                            .padding(.horizontal, 32)
                         }
+                        
+                        // Action Button
+                        VStack(spacing: 16) {
+                            if journeyManager.hasActiveJourney {
+                                Button(action: {
+                                    Task {
+                                        await journeyManager.endJourney()
+                                        if let error = journeyManager.errorMessage {
+                                            alertMessage = error
+                                            showingAlert = true
+                                        }
+                                    }
+                                }) {
+                                    HStack(spacing: 12) {
+                                        if journeyManager.isLoading {
+                                            ProgressView()
+                                                .scaleEffect(0.9)
+                                                .tint(.white)
+                                        } else {
+                                            Image(systemName: "stop.fill")
+                                        }
+                                        Text(journeyManager.isLoading ? "Ending Journey..." : "End Journey")
+                                            .fontWeight(.semibold)
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                    .padding()
+                                    .background(journeyManager.isLoading ? Color.red.opacity(0.7) : Color.red)
+                                    .foregroundColor(.white)
+                                    .cornerRadius(12)
+                                    .animation(.easeInOut(duration: 0.2), value: journeyManager.isLoading)
+                                }
+                                .disabled(journeyManager.isLoading)
+                            } else {
+                                Button(action: {
+                                    Task {
+                                        await startJourneyWithDetails()
+                                    }
+                                }) {
+                                    HStack(spacing: 12) {
+                                        if journeyManager.isLoading {
+                                            ProgressView()
+                                                .scaleEffect(0.9)
+                                                .tint(.white)
+                                        } else {
+                                            Image(systemName: "play.fill")
+                                        }
+                                        Text(journeyManager.isLoading ? "Starting Journey..." : "Start Journey")
+                                            .fontWeight(.semibold)
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                    .padding()
+                                    .background(isStartButtonEnabled ? (journeyManager.isLoading ? Color.green.opacity(0.7) : Color.green) : Color.gray)
+                                    .foregroundColor(.white)
+                                    .cornerRadius(12)
+                                    .animation(.easeInOut(duration: 0.2), value: journeyManager.isLoading)
+                                }
+                                .disabled(!isStartButtonEnabled || journeyManager.isLoading)
+                                
+                                if !areAllFieldsValid {
+                                    Text("Please fill in all required fields")
+                                        .font(.caption)
+                                        .foregroundColor(.red)
+                                        .multilineTextAlignment(.center)
+                                }
+                            }
+                        }
+                        .padding(.horizontal, 32)
                         
                         // Loading Progress Card (shown when loading)
                         if journeyManager.isLoading {
                             LoadingProgressCard(isEndingJourney: journeyManager.hasActiveJourney)
+                                .padding(.horizontal, 32)
                                 .transition(.opacity.combined(with: .slide))
                         }
-                    }
-                    .padding(.horizontal, 32)
-                    
-                    // Bottom spacer for vertical centering
-                    Spacer()
-                    
-                    // Location Permission Card (fixed at bottom when needed)
-                    if locationManager.authorizationStatus == .denied {
-                        LocationPermissionCard()
-                            .padding(.horizontal, 20)
-                            .padding(.bottom, 20)
-                    }
-                    
-                    // Journey Details Card (show at bottom when available)
-                    if let journey = journeyManager.currentJourney, !journeyManager.isLoading {
-                        ScrollView {
-                            JourneyDetailsCard(journey: journey)
-                                .padding(.horizontal, 20)
+                        
+                        // Location Permission Card (when needed)
+                        if locationManager.authorizationStatus == .denied {
+                            LocationPermissionCard()
+                                .padding(.horizontal, 32)
                         }
-                        .frame(maxHeight: 200)
-                        .padding(.bottom, 20)
+                        
+                        // Journey Details Card (show when available)
+                        if let journey = journeyManager.currentJourney, !journeyManager.isLoading {
+                            JourneyDetailsCard(journey: journey)
+                                .padding(.horizontal, 32)
+                        }
+                        
+                        // Bottom spacer
+                        Spacer()
+                            .frame(height: 40)
                     }
                 }
             }
@@ -239,35 +305,10 @@ struct JourneyTrackerView: View {
             .onDisappear {
                 locationManager.stopLocationUpdates()
             }
-            .sheet(isPresented: $showingLabelInput) {
-                JourneyLabelInputView(
-                    journeyLabel: $journeyLabel,
-                    onSave: {
-                        print("🏷️ onSave closure called. journeyLabel value: '\(journeyLabel)'")
-                        let labelToSave = journeyLabel  // Capture the value before clearing
-                        if let journey = journeyManager.currentJourney {
-                            Task {
-                                await journeyManager.updateJourneyLabel(
-                                    journeyId: journey.id,
-                                    label: labelToSave  // Use the captured value
-                                )
-                            }
-                        }
-                        journeyLabel = ""
-                        showingLabelInput = false
-                    },
-                    onSkip: {
-                        journeyLabel = ""
-                        showingLabelInput = false
-                    }
-                )
-            }
         }
     }
     
     // MARK: - Computed Properties
-    
-    @State private var rotationAngle: Double = 0
     
     private var statusText: String {
         if journeyManager.isLoading {
@@ -283,6 +324,44 @@ struct JourneyTrackerView: View {
         } else {
             return "Getting your location and finding postcode..."
         }
+    }
+    
+    private var isStartButtonEnabled: Bool {
+        !clientName.isEmpty && !description.isEmpty && locationManager.authorizationStatus != .denied
+    }
+    
+    private var areAllFieldsValid: Bool {
+        !clientName.isEmpty && !description.isEmpty
+    }
+    
+    private func startJourneyWithDetails() async {
+        // Validate all required fields are filled
+        guard !clientName.isEmpty && !description.isEmpty else {
+            alertMessage = "Please fill in all required fields"
+            showingAlert = true
+            return
+        }
+        
+        // Start the journey with the new details
+        await journeyManager.startJourney(
+            clientName: clientName,
+            rechargeToClient: rechargeToClient,
+            description: description
+        )
+        
+        if let error = journeyManager.errorMessage {
+            alertMessage = error
+            showingAlert = true
+        } else if journeyManager.hasActiveJourney {
+            // Journey started successfully, clear the form
+            clearInputFields()
+        }
+    }
+    
+    private func clearInputFields() {
+        clientName = ""
+        description = ""
+        rechargeToClient = false
     }
 }
 
@@ -407,8 +486,18 @@ struct JourneyDetailsCard: View {
             Divider()
             
             VStack(alignment: .leading, spacing: 8) {
-                if let label = journey.label, !label.isEmpty {
-                    DetailRow(title: "Label", value: label)
+                if let clientName = journey.clientName, !clientName.isEmpty {
+                    DetailRow(title: "Client", value: clientName)
+                    Divider()
+                }
+                
+                if let description = journey.description, !description.isEmpty {
+                    DetailRow(title: "Description", value: description)
+                    Divider()
+                }
+                
+                if let rechargeToClient = journey.rechargeToClient {
+                    DetailRow(title: "Recharge to Client", value: rechargeToClient ? "Yes" : "No")
                     Divider()
                 }
                 
@@ -491,75 +580,6 @@ struct LocationPermissionCard: View {
         .padding()
         .background(Color.orange.opacity(0.1))
         .cornerRadius(12)
-    }
-}
-
-struct JourneyLabelInputView: View {
-    @Binding var journeyLabel: String
-    let onSave: () -> Void
-    let onSkip: () -> Void
-    
-    var body: some View {
-        NavigationView {
-            VStack(spacing: 24) {
-                VStack(spacing: 16) {
-                    Image(systemName: "tag.fill")
-                        .font(.system(size: 50))
-                        .foregroundColor(.blue)
-                    
-                    Text("Label Your Journey")
-                        .font(.title2)
-                        .fontWeight(.semibold)
-                    
-                    Text("Add a label to help you identify this journey later (optional)")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal)
-                }
-                
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Journey Label")
-                        .font(.headline)
-                    
-                    TextField("e.g., To Work, Shopping Trip, Visit Family", text: $journeyLabel)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
-                        .submitLabel(.done)
-                        .onSubmit {
-                            print("🏷️ Text field onSubmit. journeyLabel value: '\(journeyLabel)'")
-                            if !journeyLabel.isEmpty {
-                                onSave()
-                            }
-                        }
-                        .onChange(of: journeyLabel) { oldValue, newValue in
-                            print("🏷️ Text field onChange. Old: '\(oldValue)', New: '\(newValue)'")
-                        }
-                }
-                .padding(.horizontal)
-                
-                Spacer()
-            }
-            .padding()
-            .navigationTitle("Journey Started")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Skip") {
-                        onSkip()
-                    }
-                }
-                
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Save") {
-                        print("🏷️ Save button tapped. journeyLabel value: '\(journeyLabel)'")
-                        print("🏷️ journeyLabel.isEmpty: \(journeyLabel.isEmpty)")
-                        onSave()
-                    }
-                    .fontWeight(.semibold)
-                    .disabled(journeyLabel.isEmpty)
-                }
-            }
-        }
     }
 }
 
