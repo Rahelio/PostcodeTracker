@@ -15,10 +15,16 @@ struct CreateManualJourneyView: View {
     @State private var clientName = ""
     @State private var rechargeToClient = false
     @State private var description = ""
+    @State private var selectedDate = Date()
     
     var body: some View {
         NavigationView {
             Form {
+                Section(header: Text("Journey Date")) {
+                    DatePicker("Date", selection: $selectedDate, displayedComponents: .date)
+                        .datePickerStyle(.compact)
+                }
+                
                 Section(header: Text("Start Location")) {
                     if postcodeManager.savedPostcodes.isEmpty {
                         Text("No saved postcodes available")
@@ -107,38 +113,52 @@ struct CreateManualJourneyView: View {
                 
                 if let start = selectedStartPostcode, let end = selectedEndPostcode {
                     Section(header: Text("Journey Preview")) {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("From")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                                Text(start.formattedPostcode)
-                                    .font(.headline)
-                                if !start.label.isEmpty {
-                                    Text(start.label)
+                        VStack(spacing: 12) {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("From")
                                         .font(.caption)
                                         .foregroundColor(.secondary)
+                                    Text(start.formattedPostcode)
+                                        .font(.headline)
+                                    if !start.label.isEmpty {
+                                        Text(start.label)
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
+                                }
+                                
+                                Spacer()
+                                
+                                Image(systemName: "arrow.right")
+                                    .foregroundColor(.blue)
+                                
+                                Spacer()
+                                
+                                VStack(alignment: .trailing, spacing: 4) {
+                                    Text("To")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                    Text(end.formattedPostcode)
+                                        .font(.headline)
+                                    if !end.label.isEmpty {
+                                        Text(end.label)
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
                                 }
                             }
                             
-                            Spacer()
+                            Divider()
                             
-                            Image(systemName: "arrow.right")
-                                .foregroundColor(.blue)
-                            
-                            Spacer()
-                            
-                            VStack(alignment: .trailing, spacing: 4) {
-                                Text("To")
-                                    .font(.caption)
+                            HStack {
+                                Text("Date:")
+                                    .font(.subheadline)
                                     .foregroundColor(.secondary)
-                                Text(end.formattedPostcode)
-                                    .font(.headline)
-                                if !end.label.isEmpty {
-                                    Text(end.label)
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                }
+                                Spacer()
+                                Text(selectedDate.formatted(date: .abbreviated, time: .omitted))
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
                             }
                         }
                         .padding(.vertical, 8)
@@ -221,7 +241,8 @@ struct CreateManualJourneyView: View {
                     endPostcode: endPostcode.formattedPostcode,
                     clientName: clientName,
                     rechargeToClient: rechargeToClient,
-                    description: description
+                    description: description,
+                    date: selectedDate
                 )
                 
                 await MainActor.run {

@@ -454,6 +454,19 @@ def create_manual_journey(current_user):
         recharge_to_client = data.get('recharge_to_client')
         description = data.get('description')
         
+        # Get journey date (optional)
+        journey_date_str = data.get('journey_date')
+        journey_date = datetime.utcnow()  # Default to current time
+        
+        if journey_date_str:
+            try:
+                # Parse ISO 8601 date string
+                from datetime import datetime
+                journey_date = datetime.fromisoformat(journey_date_str.replace('Z', '+00:00'))
+            except (ValueError, AttributeError) as e:
+                logger.warning(f"Invalid journey_date format: {journey_date_str}, using current time. Error: {e}")
+                journey_date = datetime.utcnow()
+        
         if not start_postcode or not end_postcode:
             return jsonify({'success': False, 'message': 'Start and end postcodes are required'}), 400
         
@@ -477,8 +490,8 @@ def create_manual_journey(current_user):
         journey = Journey(
             start_postcode=start_postcode,
             end_postcode=end_postcode,
-            start_time=datetime.utcnow(),
-            end_time=datetime.utcnow(),  # Manual journeys are immediately completed
+            start_time=journey_date,
+            end_time=journey_date,  # Manual journeys are immediately completed
             distance_miles=distance,
             user_id=current_user.id,
             client_name=client_name,
@@ -494,7 +507,7 @@ def create_manual_journey(current_user):
         db.session.add(journey)
         db.session.commit()
         
-        logger.info(f"User {current_user.username} created manual journey {journey.id}: {start_postcode} to {end_postcode}, distance: {distance}")
+        logger.info(f"User {current_user.username} created manual journey {journey.id}: {start_postcode} to {end_postcode}, date: {journey_date}, distance: {distance}")
         
         return jsonify({
             'success': True,

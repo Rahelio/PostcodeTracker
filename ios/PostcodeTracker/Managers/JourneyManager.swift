@@ -435,7 +435,7 @@ class JourneyManager: ObservableObject {
     
     // MARK: - Manual Journey Creation
     
-    func createManualJourney(startPostcode: String, endPostcode: String, clientName: String? = nil, rechargeToClient: Bool? = nil, description: String? = nil) async throws -> JourneyResponse {
+    func createManualJourney(startPostcode: String, endPostcode: String, clientName: String? = nil, rechargeToClient: Bool? = nil, description: String? = nil, date: Date? = nil) async throws -> JourneyResponse {
         guard apiService.isAuthenticated else {
             throw APIError.unauthorized
         }
@@ -451,7 +451,8 @@ class JourneyManager: ObservableObject {
                 endPostcode: endPostcode,
                 clientName: clientName,
                 rechargeToClient: rechargeToClient,
-                description: description
+                description: description,
+                date: date
             )
             
             if response.success, let journey = response.journey {

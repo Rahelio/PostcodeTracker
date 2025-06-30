@@ -66,16 +66,6 @@ struct JourneysView: View {
             .navigationTitle("Journey History")
             .toolbar {
                 ToolbarItemGroup(placement: .navigationBarTrailing) {
-                    // Debug: Always show a button to help diagnose the issue
-                    Button("Debug Info") {
-                        print("🐛 DEBUG INFO:")
-                        print("- Journeys count: \(journeyManager.journeys.count)")
-                        print("- Is loading: \(journeyManager.isLoading)")
-                        print("- Error message: \(journeyManager.errorMessage ?? "none")")
-                        print("- Is authenticated: \(AuthManager.shared.isAuthenticated)")
-                    }
-                    
-                    // Temporary: Always show export menu for testing
                     Menu("Export") {
                             // Export All section
                             Section("Export All") {

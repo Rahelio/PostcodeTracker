@@ -323,7 +323,7 @@ class APIServiceV2: ObservableObject {
         return try await performRequest(request, responseType: JourneyResponse.self)
     }
     
-    func createManualJourney(startPostcode: String, endPostcode: String, clientName: String? = nil, rechargeToClient: Bool? = nil, description: String? = nil) async throws -> JourneyResponse {
+    func createManualJourney(startPostcode: String, endPostcode: String, clientName: String? = nil, rechargeToClient: Bool? = nil, description: String? = nil, date: Date? = nil) async throws -> JourneyResponse {
         var request = try createRequest(for: "journey/manual", method: "POST")
         
         var body: [String: Any] = [
@@ -340,6 +340,11 @@ class APIServiceV2: ObservableObject {
         }
         if let description = description {
             body["description"] = description
+        }
+        if let date = date {
+            // Format date as ISO 8601 string for backend
+            let formatter = ISO8601DateFormatter()
+            body["journey_date"] = formatter.string(from: date)
         }
         
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
