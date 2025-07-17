@@ -1,0 +1,83 @@
+# Git
+.git/
+.gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+ENV/
+.venv/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Database
+*.db
+*.sqlite3
+
+# Environment variables
+.env
+.env.*
+
+# Logs
+.logs/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# iOS (since this is a backend service)
+ios/
+
+# Documentation and deployment files
+README.md
+DEPLOYMENT.md
+*.md
+
+# Service files
+*.service
+
+# Scripts (these might contain sensitive info or be environment-specific)
+start_server.sh
+
+# Docker files
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Temporary files
+*.tmp
+*.temp
+.tmp/
