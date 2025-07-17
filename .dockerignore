@@ -1,0 +1,110 @@
+# Git
+.git/
+.gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Virtual Environment
+venv/
+ENV/
+env/
+.venv/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Database
+*.db
+*.sqlite3
+*.sqlite
+
+# Environment variables
+.env
+.env.*
+
+# Logs
+logs/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Documentation
+*.md
+LICENSE
+docs/
+
+# Docker
+Dockerfile
+.dockerignore
+docker-compose*.yml
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+
+# iOS folder (seems to be a separate project)
+ios/
+
+# Service files
+*.service
+
+# Shell scripts (optional - include if needed in container)
+# *.sh
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+*~
+
+# Test files
+tests/
+test_*.py
+*_test.py
+
+# Coverage reports
+coverage.xml
+*.cover
+.hypothesis/
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+*.ipynb
