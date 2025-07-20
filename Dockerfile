@@ -50,7 +50,7 @@ EXPOSE 8005
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8005/api/v1/health', timeout=5)" || exit 1
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8005/LocationApp/api/health', timeout=5)" || exit 1
 
 # Run the application with gunicorn
 CMD ["gunicorn", "--config", "gunicorn.conf.py", "app:app"]
