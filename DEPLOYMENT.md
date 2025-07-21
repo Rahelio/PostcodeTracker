@@ -3,7 +3,7 @@
 ## Quick Start
 
 ### 1. Upload Files to Server
-Transfer all files to your server at `rickys.ddns.net`.
+Transfer all files to your server at `silicon-apex.com`.
 
 ### 2. Install Dependencies
 ```bash
@@ -24,7 +24,7 @@ pip install -r requirements.txt
 gunicorn --config gunicorn.conf.py app:app
 ```
 
-The server will be available at: `http://rickys.ddns.net:8005`
+The server will be available at: `http://silicon-apex.com:8005`
 
 ## Production Setup (Optional)
 
@@ -81,6 +81,6 @@ The server provides these endpoints:
 ## iOS App Configuration
 
 The iOS app has been configured to connect to:
-`http://rickys.ddns.net:8005/api`
+`http://silicon-apex.com:8005/api`
 
 No changes needed to the iOS app - just build and run! 

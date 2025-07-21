@@ -80,7 +80,7 @@ class APIServiceV2: ObservableObject {
     static let shared = APIServiceV2()
     
     // Base URL includes LocationApp prefix to align with Nginx alias
-    private let baseURL = "https://rickys.ddns.net/LocationApp/api"
+    private let baseURL = "https://silicon-apex.com/LocationApp/api"
     
     // Custom URLSession with appropriate timeouts
     private let session: URLSession = {
